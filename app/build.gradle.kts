@@ -29,6 +29,16 @@ android {
         buildConfigField("String", "DATAFAST_TOKEN", token.asBuildConfigString())
     }
 
+    buildTypes {
+        release {
+            // R8 cuts Compose's cold start on the Fire TV Stick Lite; sideload-only, so the debug key signs it.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
