@@ -7,53 +7,67 @@ import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.net.URLEncoder
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.toKotlinDuration
 
 /** Reads every website of a DataFast account with a read-only `dft_` account token. */
 class DataFastAnalyticsSource(
     private val token: String,
     private val transport: HttpTransport,
     private val baseUrl: String = "https://datafa.st/api/v1",
+    private val clock: Clock = Clock.systemUTC(),
 ) : AnalyticsSource {
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun products(): List<Product> =
-        get<Envelope<List<WebsiteDto>>>("/admin/websites").data.orEmpty().map { website ->
+    @Volatile
+    private var cachedProducts: Pair<List<Product>, Instant>? = null
+
+    /** Websites rarely change, so the list is reused for an hour to save rate-limit budget. */
+    override suspend fun products(): List<Product> {
+        cachedProducts?.let { (products, fetchedAt) ->
+            if (Duration.between(fetchedAt, clock.instant()) < PRODUCTS_TTL) return products
+        }
+        val products = get<Envelope<List<WebsiteDto>>>("/admin/websites").data.orEmpty().map { website ->
             Product(
                 id = website.id,
                 name = website.name?.takeIf { it.isNotBlank() } ?: website.domain,
                 domain = website.domain,
             )
         }
+        cachedProducts = products to clock.instant()
+        return products
+    }
 
-    override suspend fun traffic(product: Product, window: ReportWindow): ProductTraffic = coroutineScope {
-        val range = listOf(
-            "websiteId" to product.id,
-            "startAt" to window.start.toString(),
-            "endAt" to window.end.toString(),
-            "timezone" to window.zone.id,
-            "fields" to "visitors",
+    /** One request per product: `totals.visitors` are the window's unique visitors, as in `/analytics/overview`. */
+    override suspend fun traffic(product: Product, window: ReportWindow): ProductTraffic {
+        val timeseries = get<Envelope<List<BucketDto>>>(
+            "/analytics/timeseries",
+            listOf(
+                "websiteId" to product.id,
+                "startAt" to window.start.toString(),
+                "endAt" to window.end.toString(),
+                "timezone" to window.zone.id,
+                "fields" to "visitors",
+                "interval" to window.granularity.apiValue,
+                "limit" to "1000",
+            ),
         )
-        val overview = async { get<Envelope<List<VisitorsDto>>>("/analytics/overview", range) }
-        val timeseries = async {
-            get<Envelope<List<BucketDto>>>(
-                "/analytics/timeseries",
-                range + listOf("interval" to window.granularity.apiValue, "limit" to "1000"),
-            )
-        }
-        ProductTraffic(
-            visitors = overview.await().data?.firstOrNull()?.visitors ?: 0,
-            trend = timeseries.await().data.orEmpty().map { TrafficPoint(parseBucketStart(it.timestamp), it.visitors) },
+        val buckets = timeseries.data.orEmpty()
+        return ProductTraffic(
+            visitors = timeseries.totals?.visitors ?: buckets.sumOf { it.visitors },
+            trend = buckets.map { TrafficPoint(parseBucketStart(it.timestamp), it.visitors) },
         )
     }
 
@@ -81,6 +95,13 @@ class DataFastAnalyticsSource(
     private fun errorFor(response: HttpResponse): AnalyticsException = when (response.status) {
         401 -> AnalyticsException("DataFast rejected the token (401). Check DATAFAST_TOKEN in local.properties.")
         403 -> AnalyticsException("The DataFast token needs the analytics:read and websites:read permissions (403).")
+        429 -> {
+            val limit = runCatching { json.decodeFromString<RateLimitDto>(response.body) }.getOrNull()
+            val retryAfter = limit?.reset?.let { reset ->
+                Duration.between(clock.instant(), Instant.ofEpochSecond(reset)).toKotlinDuration().coerceAtLeast(ZERO)
+            }
+            AnalyticsException("DataFast rate limit reached (${limit?.limit ?: 60} requests per minute).", retryAfter = retryAfter)
+        }
         else -> {
             val detail = runCatching { json.decodeFromString<ErrorEnvelope>(response.body).error?.message }.getOrNull()
             AnalyticsException("DataFast error ${response.status}" + detail?.let { ": $it" }.orEmpty())
@@ -96,6 +117,7 @@ class DataFastAnalyticsSource(
 
     private companion object {
         const val UNEXPECTED_RESPONSE = "DataFast sent an unexpected response."
+        val PRODUCTS_TTL: Duration = Duration.ofHours(1)
     }
 }
 
@@ -117,13 +139,13 @@ private fun parseBucketStart(timestamp: String): LocalDateTime =
         .getOrElse { throw AnalyticsException("DataFast sent an unexpected response.", it) }
 
 @Serializable
-private data class Envelope<T>(val status: String? = null, val data: T? = null)
+private data class Envelope<T>(val status: String? = null, val data: T? = null, val totals: TotalsDto? = null)
+
+@Serializable
+private data class TotalsDto(val visitors: Long? = null)
 
 @Serializable
 private data class WebsiteDto(@SerialName("_id") val id: String, val domain: String, val name: String? = null)
-
-@Serializable
-private data class VisitorsDto(val visitors: Long = 0)
 
 @Serializable
 private data class BucketDto(val timestamp: String, val visitors: Long = 0)
@@ -133,3 +155,7 @@ private data class ErrorEnvelope(val error: ErrorDto? = null)
 
 @Serializable
 private data class ErrorDto(val message: String? = null)
+
+/** DataFast's 429 body: `{"error":"Too many requests","limit":60,"remaining":0,"reset":<epoch seconds>}`. */
+@Serializable
+private data class RateLimitDto(val limit: Int? = null, val reset: Long? = null)

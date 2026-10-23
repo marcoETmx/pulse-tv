@@ -54,10 +54,19 @@ and signed with the local debug key, because it is meant for sideloading only. O
 | OK | Load the focused period |
 | ▼ | Focus the chart |
 | ◀ ▶ on the chart | Move a cursor through the hours, days or weeks, with exact values |
+| ▶ at the end of the chart | Enter the product ranking (first row, or the last one you focused) |
+| ▲ ▼ in the ranking | Move one product at a time; the header shows which rows are on screen |
 | ▲ | Back to the period selector |
 
 The dashboard refreshes every 5 minutes while it is on screen, pauses when you leave the app,
 and keeps the TV awake while it is open.
+
+### DataFast rate limit
+
+DataFast allows 60 API requests per minute per token. A dashboard load costs one request per
+website (the website list is reused for an hour), a period you opened less than 5 minutes ago is
+shown again without calling DataFast, and after a `429` the app waits until DataFast's reset time
+before retrying, keeping the last data on screen.
 
 ## Periods
 

@@ -182,6 +182,78 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun `a rate limit waits until DataFast accepts requests again`() = runTest(dispatcher) {
+        withViewModel({ period ->
+            if (calls.size == 1) throw AnalyticsException("DataFast rate limit reached (60 requests per minute).", retryAfter = 50.seconds)
+            dashboardFor(period)
+        }) { viewModel ->
+            runCurrent()
+
+            advanceTimeBy(49.seconds)
+            runCurrent()
+            assertEquals(1, calls.size)
+
+            advanceTimeBy(1.seconds)
+            runCurrent()
+            assertEquals(2, calls.size)
+            assertNull(viewModel.state.value.error)
+        }
+    }
+
+    @Test
+    fun `returning to a period loaded minutes ago reuses it without calling DataFast`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }) { viewModel ->
+            runCurrent()
+            viewModel.select(Period.LAST_7_DAYS)
+            runCurrent()
+            advanceTimeBy(2.minutes)
+
+            viewModel.select(Period.TODAY)
+            runCurrent()
+
+            assertEquals(listOf(Period.TODAY, Period.LAST_7_DAYS), calls)
+            with(viewModel.state.value) {
+                assertEquals(dashboardFor(Period.TODAY), dashboard)
+                assertFalse(isLoading)
+                assertFalse(isShowingStalePeriod)
+            }
+
+            // It still refreshes once the reused data turns five minutes old.
+            advanceTimeBy(3.minutes)
+            runCurrent()
+            assertEquals(listOf(Period.TODAY, Period.LAST_7_DAYS, Period.TODAY), calls)
+        }
+    }
+
+    @Test
+    fun `a period older than five minutes is reloaded when selected again`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }) { viewModel ->
+            runCurrent()
+            viewModel.select(Period.LAST_7_DAYS)
+            runCurrent()
+            advanceTimeBy(6.minutes)
+
+            viewModel.select(Period.TODAY)
+            runCurrent()
+
+            assertEquals(Period.TODAY, calls.last())
+            assertEquals(4, calls.size) // today, 7 days, 7 days refreshed at 5 min, today again
+        }
+    }
+
+    @Test
+    fun `retry always asks DataFast again`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }) { viewModel ->
+            runCurrent()
+
+            viewModel.retry()
+            runCurrent()
+
+            assertEquals(listOf(Period.TODAY, Period.TODAY), calls)
+        }
+    }
+
+    @Test
     fun `unexpected failures show a generic message`() = runTest(dispatcher) {
         withViewModel({ error("NullPointer somewhere") }) { viewModel ->
             runCurrent()
@@ -200,6 +272,7 @@ class DashboardViewModelTest {
                 load(period)
             },
             isDemo = true,
+            timeSource = testScheduler.timeSource,
         )
         try {
             block(viewModel)

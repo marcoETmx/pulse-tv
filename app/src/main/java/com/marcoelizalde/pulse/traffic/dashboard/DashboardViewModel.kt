@@ -13,9 +13,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.ComparableTimeMark
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 data class DashboardUiState(
     val selectedPeriod: Period = Period.TODAY,
@@ -33,56 +35,71 @@ class DashboardViewModel(
     isDemo: Boolean,
     private val refreshEvery: Duration = 5.minutes,
     private val retryAfterFailure: Duration = 30.seconds,
+    private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(DashboardUiState(isDemo = isDemo))
     val state: StateFlow<DashboardUiState> = mutableState.asStateFlow()
 
     private var refreshLoop: Job? = null
 
+    /** Last dashboard per period, so flipping between periods does not spend DataFast's rate limit. */
+    private val recent = mutableMapOf<Period, Pair<TrafficDashboard, ComparableTimeMark>>()
+
     init {
-        restart()
+        restart(reuseRecent = true)
     }
 
     fun select(period: Period) {
         mutableState.update { it.copy(selectedPeriod = period) }
-        restart()
+        restart(reuseRecent = true)
     }
 
-    fun retry() = restart()
+    fun retry() = restart(reuseRecent = false)
 
     /** Stops refreshing while the dashboard is not visible. */
     fun pause() {
         refreshLoop?.cancel()
     }
 
-    /** Reloads at once when the dashboard becomes visible again; no-op while already refreshing. */
+    /** Reloads when the dashboard becomes visible again (unless its data is still fresh); no-op while refreshing. */
     fun resume() {
-        if (refreshLoop?.isActive != true) restart()
+        if (refreshLoop?.isActive != true) restart(reuseRecent = true)
     }
 
-    /** Loads the selected period now, then keeps it fresh until the selection changes. */
-    private fun restart() {
+    /**
+     * Shows the selected period now (from [recent] when younger than [refreshEvery], otherwise loaded),
+     * then keeps it fresh until the selection changes.
+     */
+    private fun restart(reuseRecent: Boolean) {
         refreshLoop?.cancel()
+        val period = mutableState.value.selectedPeriod
         refreshLoop = viewModelScope.launch {
+            val reusable = recent[period]?.takeIf { reuseRecent }
+            val age = reusable?.second?.elapsedNow()
+            if (reusable != null && age != null && age < refreshEvery) {
+                mutableState.update { it.copy(dashboard = reusable.first, isLoading = false, error = null) }
+                delay(refreshEvery - age)
+            }
             while (true) {
-                val succeeded = load(mutableState.value.selectedPeriod)
-                delay(if (succeeded) refreshEvery else retryAfterFailure)
+                delay(load(period))
             }
         }
     }
 
-    private suspend fun load(period: Period): Boolean {
+    /** Loads [period] and returns how long to wait before the next attempt. */
+    private suspend fun load(period: Period): Duration {
         mutableState.update { it.copy(isLoading = true) }
         return try {
             val dashboard = loadDashboard(period)
+            recent[period] = dashboard to timeSource.markNow()
             mutableState.update { it.copy(dashboard = dashboard, isLoading = false, error = null) }
-            true
+            refreshEvery
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             val message = (e as? AnalyticsException)?.message ?: "Something went wrong loading the dashboard."
             mutableState.update { it.copy(isLoading = false, error = message) }
-            false
+            maxOf(retryAfterFailure, (e as? AnalyticsException)?.retryAfter ?: Duration.ZERO)
         }
     }
 }

@@ -13,9 +13,14 @@ import org.junit.Test
 import java.io.IOException
 import java.net.URI
 import java.net.URLDecoder
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
+import kotlin.time.Duration.Companion.seconds
 
 class DataFastAnalyticsSourceTest {
     private val shop = Product("665f0b3c4d2e1a0012345678", "Shop", "shop.example")
@@ -52,17 +57,13 @@ class DataFastAnalyticsSourceTest {
     }
 
     @Test
-    fun `traffic reads the product's visitors and trend for the window`() = runTest {
+    fun `traffic reads the product's unique visitors and trend in one request`() = runTest {
         val transport = FakeTransport(
-            "/analytics/overview" to HttpResponse(
-                200,
-                """{"status":"success","data":[{"visitors":12450,"pageviews":16890,"currency":"USD"}]}""",
-            ),
             "/analytics/timeseries" to HttpResponse(
                 200,
                 """
                 {"status":"success","fields":["visitors"],"interval":"day","timezone":"America/Mexico_City",
-                 "totals":{"visitors":999},
+                 "totals":{"visitors":1100},
                  "data":[{"timestamp":"2026-10-17T00:00:00Z","visitors":528},{"timestamp":"2026-10-18T00:00:00Z","visitors":610}],
                  "pagination":{"limit":1000,"offset":0,"total":2}}
                 """,
@@ -71,9 +72,10 @@ class DataFastAnalyticsSourceTest {
 
         val traffic = DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window)
 
+        // totals.visitors are unique visitors for the window, so returning visitors are not counted twice.
         assertEquals(
             ProductTraffic(
-                visitors = 12450,
+                visitors = 1100,
                 trend = listOf(
                     TrafficPoint(LocalDateTime.of(2026, 10, 17, 0, 0), 528),
                     TrafficPoint(LocalDateTime.of(2026, 10, 18, 0, 0), 610),
@@ -81,17 +83,7 @@ class DataFastAnalyticsSourceTest {
             ),
             traffic,
         )
-        val overview = transport.request("/analytics/overview")
-        assertEquals(
-            mapOf(
-                "websiteId" to shop.id,
-                "startAt" to "2026-10-17",
-                "endAt" to "2026-10-23",
-                "timezone" to "America/Mexico_City",
-                "fields" to "visitors",
-            ),
-            overview.query,
-        )
+        assertEquals(listOf("/analytics/timeseries"), transport.requests.map { it.path })
         val timeseries = transport.request("/analytics/timeseries")
         assertEquals(
             mapOf(
@@ -197,6 +189,42 @@ class DataFastAnalyticsSourceTest {
     }
 
     @Test
+    fun `the website list is reused for an hour`() = runTest {
+        val clock = MutableClock(Instant.parse("2026-10-23T18:00:00Z"))
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(200, """{"status":"success","data":[{"_id":"1","domain":"shop.example"}]}"""),
+        )
+        val source = DataFastAnalyticsSource("dft_secret", transport, clock = clock)
+
+        source.products()
+        clock.advance(Duration.ofMinutes(59))
+        source.products()
+        assertEquals(1, transport.requests.size)
+
+        clock.advance(Duration.ofMinutes(2))
+        source.products()
+        assertEquals(2, transport.requests.size)
+    }
+
+    @Test
+    fun `a rate limit says when DataFast accepts requests again`() = runTest {
+        val now = Instant.parse("2026-10-23T18:00:00Z")
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(
+                429,
+                """{"error":"Too many requests","message":"Rate limit exceeded...","limit":60,"remaining":0,"reset":${now.epochSecond + 42}}""",
+            ),
+        )
+
+        val error = runCatching {
+            DataFastAnalyticsSource("dft_secret", transport, clock = MutableClock(now)).products()
+        }.exceptionOrNull() as AnalyticsException
+
+        assertEquals("DataFast rate limit reached (60 requests per minute).", error.message)
+        assertEquals(42.seconds, error.retryAfter)
+    }
+
+    @Test
     fun `a network failure becomes an AnalyticsException`() = runTest {
         val transport = HttpTransport { _, _ -> throw IOException("timeout") }
 
@@ -215,6 +243,18 @@ class DataFastAnalyticsSourceTest {
                 val (key, value) = pair.split("=", limit = 2)
                 URLDecoder.decode(key, "UTF-8") to URLDecoder.decode(value, "UTF-8")
             }
+    }
+
+    private class MutableClock(private var now: Instant) : Clock() {
+        fun advance(duration: Duration) {
+            now += duration
+        }
+
+        override fun instant(): Instant = now
+
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+
+        override fun withZone(zone: ZoneId): Clock = this
     }
 
     private class FakeTransport(vararg responses: Pair<String, HttpResponse>) : HttpTransport {
