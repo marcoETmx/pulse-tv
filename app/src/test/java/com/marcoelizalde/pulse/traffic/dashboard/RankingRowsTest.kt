@@ -16,9 +16,9 @@ class RankingRowsTest {
 
         assertEquals(
             listOf(
-                RankingRow(1, "Product 1", "p1.example", 99, 0.1),
-                RankingRow(2, "Product 2", "p2.example", 98, 0.1),
-                RankingRow(3, "Product 3", "p3.example", 97, 0.1),
+                RankingRow(1, "Product 1", "p1.example", 99, 0.1, productId = "1"),
+                RankingRow(2, "Product 2", "p2.example", 98, 0.1, productId = "2"),
+                RankingRow(3, "Product 3", "p3.example", 97, 0.1, productId = "3"),
             ),
             rows,
         )
@@ -38,5 +38,13 @@ class RankingRowsTest {
         val rows = rankingRows(listOf(RankedProduct(Product("1", "shop.example", "shop.example"), 5, 1.0)))
 
         assertEquals("", rows.single().detail)
+    }
+
+    @Test
+    fun `the monogram is the first letter or digit of the name`() {
+        assertEquals(
+            listOf("M", "D", "C", "4", "•"),
+            listOf("marcoelizalde.com", "www.devzap.io", "ClaudeFlow", "42 Studio", "—").map(::monogram),
+        )
     }
 }

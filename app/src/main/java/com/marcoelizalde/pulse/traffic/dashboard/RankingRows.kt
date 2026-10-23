@@ -9,6 +9,7 @@ data class RankingRow(
     val detail: String,
     val visitors: Long,
     val share: Double,
+    val productId: String,
 )
 
 /** Every product keeps its own row; the domain is shown only when it adds information. */
@@ -20,5 +21,10 @@ fun rankingRows(ranking: List<RankedProduct>): List<RankingRow> =
             detail = ranked.product.domain.takeIf { it != ranked.product.name }.orEmpty(),
             visitors = ranked.visitors,
             share = ranked.share,
+            productId = ranked.product.id,
         )
     }
+
+/** Shown in place of a logo: the first letter or digit of [name], ignoring a leading "www.". */
+fun monogram(name: String): String =
+    name.removePrefix("www.").firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "•"

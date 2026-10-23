@@ -189,6 +189,26 @@ class DataFastAnalyticsSourceTest {
     }
 
     @Test
+    fun `the logo configured in DataFast comes from the website metadata`() = runTest {
+        val logo = "https://d1aebdcemlt4l7.cloudfront.net/website-logos/zXQEJ4Q0PpOVLLQXkkqh.jpeg"
+        val transport = FakeTransport(
+            "/analytics/metadata" to HttpResponse(200, """{"status":"success","data":[{"domain":"shop.example","logo":"$logo"}]}"""),
+        )
+
+        assertEquals(logo, DataFastAnalyticsSource("dft_secret", transport).logoUrl(shop))
+        assertEquals(mapOf("websiteId" to shop.id, "fields" to "logo"), transport.request("/analytics/metadata").query)
+    }
+
+    @Test
+    fun `a website without a DataFast logo has none`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/metadata" to HttpResponse(200, """{"status":"success","data":[{"domain":"shop.example","logo":null}]}"""),
+        )
+
+        assertEquals(null, DataFastAnalyticsSource("dft_secret", transport).logoUrl(shop))
+    }
+
+    @Test
     fun `the website list is reused for an hour`() = runTest {
         val clock = MutableClock(Instant.parse("2026-10-23T18:00:00Z"))
         val transport = FakeTransport(

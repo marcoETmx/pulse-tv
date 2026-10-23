@@ -56,7 +56,7 @@ fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, o
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val dashboard = state.dashboard
                 when {
-                    dashboard != null -> DashboardContent(dashboard, dimmed = state.isShowingStalePeriod)
+                    dashboard != null -> DashboardContent(dashboard, state.logos, dimmed = state.isShowingStalePeriod)
                     state.error != null -> ErrorPanel(state.error, onRetry)
                     else -> LoadingPanel()
                 }
@@ -68,11 +68,11 @@ fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, o
 }
 
 @Composable
-private fun DashboardContent(dashboard: TrafficDashboard, dimmed: Boolean) {
+private fun DashboardContent(dashboard: TrafficDashboard, logos: Map<String, ByteArray>, dimmed: Boolean) {
     val alpha by animateFloatAsState(if (dimmed) 0.35f else 1f, label = "dim")
     Row(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }) {
-        VisitorsCard(dashboard, Modifier.weight(0.58f).fillMaxHeight())
+        VisitorsCard(dashboard, Modifier.weight(0.55f).fillMaxHeight())
         Spacer(Modifier.width(20.dp))
-        ProductRanking(dashboard.ranking, Modifier.weight(0.42f).fillMaxHeight())
+        ProductRanking(dashboard.ranking, logos, Modifier.weight(0.45f).fillMaxHeight())
     }
 }

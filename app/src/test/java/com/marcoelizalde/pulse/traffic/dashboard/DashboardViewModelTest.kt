@@ -3,6 +3,8 @@ package com.marcoelizalde.pulse.traffic.dashboard
 import androidx.lifecycle.viewModelScope
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.Period
+import com.marcoelizalde.pulse.traffic.domain.Product
+import com.marcoelizalde.pulse.traffic.domain.RankedProduct
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +18,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -254,6 +257,44 @@ class DashboardViewModelTest {
     }
 
     @Test
+    fun `logos load once per product after the dashboard`() = runTest(dispatcher) {
+        val logoCalls = mutableListOf<String>()
+        withViewModel(
+            load = { dashboardFor(it, ranking = listOf(ranked(shop), ranked(blog))) },
+            loadLogo = { product ->
+                logoCalls += product.id
+                if (product == shop) byteArrayOf(7) else null
+            },
+        ) { viewModel ->
+            runCurrent()
+
+            assertEquals(listOf(shop.id, blog.id), logoCalls)
+            assertArrayEquals(byteArrayOf(7), viewModel.state.value.logos[shop.id])
+            assertFalse(blog.id in viewModel.state.value.logos)
+
+            advanceTimeBy(5.minutes)
+            runCurrent()
+            assertEquals(listOf(shop.id, blog.id), logoCalls)
+        }
+    }
+
+    @Test
+    fun `a failing logo never breaks the dashboard`() = runTest(dispatcher) {
+        withViewModel(
+            load = { dashboardFor(it, ranking = listOf(ranked(shop))) },
+            loadLogo = { throw AnalyticsException("DataFast rate limit reached (60 requests per minute).") },
+        ) { viewModel ->
+            runCurrent()
+
+            with(viewModel.state.value) {
+                assertEquals(Period.TODAY, dashboard?.period)
+                assertNull(error)
+                assertTrue(logos.isEmpty())
+            }
+        }
+    }
+
+    @Test
     fun `unexpected failures show a generic message`() = runTest(dispatcher) {
         withViewModel({ error("NullPointer somewhere") }) { viewModel ->
             runCurrent()
@@ -262,8 +303,14 @@ class DashboardViewModelTest {
         }
     }
 
+    private val shop = Product("1", "Shop", "shop.example")
+    private val blog = Product("2", "Blog", "blog.example")
+
+    private fun ranked(product: Product) = RankedProduct(product, visitors = 10, share = 0.5)
+
     private inline fun TestScope.withViewModel(
         noinline load: suspend (Period) -> TrafficDashboard,
+        noinline loadLogo: suspend (Product) -> ByteArray? = { null },
         block: TestScope.(DashboardViewModel) -> Unit,
     ) {
         val viewModel = DashboardViewModel(
@@ -272,6 +319,7 @@ class DashboardViewModelTest {
                 load(period)
             },
             isDemo = true,
+            loadLogo = loadLogo,
             timeSource = testScheduler.timeSource,
         )
         try {
@@ -281,11 +329,11 @@ class DashboardViewModelTest {
         }
     }
 
-    private fun dashboardFor(period: Period) = TrafficDashboard(
+    private fun dashboardFor(period: Period, ranking: List<RankedProduct> = emptyList()) = TrafficDashboard(
         period = period,
         window = period.windowEndingOn(LocalDate.of(2026, 10, 23), ZoneId.of("UTC")),
         totalVisitors = 100,
-        ranking = emptyList(),
+        ranking = ranking,
         trend = emptyList(),
         updatedAt = Instant.EPOCH,
     )

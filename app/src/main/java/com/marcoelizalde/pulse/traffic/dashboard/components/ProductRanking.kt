@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -64,7 +65,7 @@ private val RowShape = RoundedCornerShape(12.dp)
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductRanking(ranking: List<RankedProduct>, modifier: Modifier = Modifier) {
+fun ProductRanking(ranking: List<RankedProduct>, logos: Map<String, ByteArray>, modifier: Modifier = Modifier) {
     val rows = remember(ranking) { rankingRows(ranking) }
     val maxVisitors = (rows.maxOfOrNull { it.visitors } ?: 0).coerceAtLeast(1)
     val scroll = rememberScrollState()
@@ -96,7 +97,7 @@ fun ProductRanking(ranking: List<RankedProduct>, modifier: Modifier = Modifier) 
             }
             val firstRowFocus = remember { FocusRequester() }
             CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollOnlyAsNeeded) {
-                RankingList(rows, maxVisitors, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
+                RankingList(rows, logos, maxVisitors, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
             }
         }
     }
@@ -105,6 +106,7 @@ fun ProductRanking(ranking: List<RankedProduct>, modifier: Modifier = Modifier) 
 @Composable
 private fun RankingList(
     rows: List<RankingRow>,
+    logos: Map<String, ByteArray>,
     maxVisitors: Long,
     scroll: ScrollState,
     firstRowFocus: FocusRequester,
@@ -124,6 +126,7 @@ private fun RankingList(
         rows.forEachIndexed { index, row ->
             RankingLine(
                 row,
+                logo = logos[row.productId],
                 fraction = row.visitors.toFloat() / maxVisitors,
                 order = index,
                 modifier = if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier,
@@ -143,7 +146,7 @@ private val ScrollOnlyAsNeeded = object : BringIntoViewSpec {
 }
 
 @Composable
-private fun RankingLine(row: RankingRow, fraction: Float, order: Int, modifier: Modifier = Modifier) {
+private fun RankingLine(row: RankingRow, logo: ByteArray?, fraction: Float, order: Int, modifier: Modifier = Modifier) {
     var focused by remember { mutableStateOf(false) }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(fraction) {
@@ -171,10 +174,12 @@ private fun RankingLine(row: RankingRow, fraction: Float, order: Int, modifier: 
     ) {
         Text(
             "%02d".format(row.rank),
-            modifier = Modifier.width(34.dp),
+            modifier = Modifier.width(30.dp),
             style = PulseType.rowName,
             color = if (focused) PulseColors.TextSecondary else PulseColors.TextMuted,
         )
+        ProductLogo(row.name, logo)
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             // The name is measured first so it keeps its space; the domain takes what is left.
             Row {
@@ -216,8 +221,8 @@ private fun RankingLine(row: RankingRow, fraction: Float, order: Int, modifier: 
                     },
             )
         }
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.width(84.dp), horizontalAlignment = Alignment.End) {
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.widthIn(min = 48.dp), horizontalAlignment = Alignment.End) {
             Text(Formats.grouped(row.visitors), style = PulseType.rowValue, maxLines = 1)
             Text(Formats.share(row.share), style = PulseType.caption, color = PulseColors.TextMuted)
         }

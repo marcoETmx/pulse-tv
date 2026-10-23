@@ -50,6 +50,11 @@ class DataFastAnalyticsSource(
         return products
     }
 
+    /** The logo URL configured for [product] in DataFast's website settings, or null. */
+    suspend fun logoUrl(product: Product): String? =
+        get<Envelope<List<MetadataDto>>>("/analytics/metadata", listOf("websiteId" to product.id, "fields" to "logo"))
+            .data?.firstOrNull()?.logo?.takeIf { it.isNotBlank() }
+
     /** One request per product: `totals.visitors` are the window's unique visitors, as in `/analytics/overview`. */
     override suspend fun traffic(product: Product, window: ReportWindow): ProductTraffic {
         val timeseries = get<Envelope<List<BucketDto>>>(
@@ -146,6 +151,9 @@ private data class TotalsDto(val visitors: Long? = null)
 
 @Serializable
 private data class WebsiteDto(@SerialName("_id") val id: String, val domain: String, val name: String? = null)
+
+@Serializable
+private data class MetadataDto(val logo: String? = null)
 
 @Serializable
 private data class BucketDto(val timestamp: String, val visitors: Long = 0)
