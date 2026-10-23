@@ -75,4 +75,13 @@ class FormatsTest {
             Granularity.entries.map(Formats::trendTitle),
         )
     }
+
+    @Test
+    fun `ranking header says which rows are on screen when not all fit`() {
+        assertEquals("10 tracked", Formats.rankingRange(firstVisible = 0, visibleRows = 10, total = 10))
+        assertEquals("5 tracked", Formats.rankingRange(firstVisible = 0, visibleRows = 6, total = 5))
+        assertEquals("1 tracked", Formats.rankingRange(firstVisible = 0, visibleRows = 6, total = 1))
+        assertEquals("1–6 of 10", Formats.rankingRange(firstVisible = 0, visibleRows = 6, total = 10))
+        assertEquals("5–10 of 10", Formats.rankingRange(firstVisible = 4, visibleRows = 6, total = 10))
+    }
 }

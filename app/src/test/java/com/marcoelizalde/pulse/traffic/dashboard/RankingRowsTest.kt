@@ -11,8 +11,8 @@ class RankingRowsTest {
     }
 
     @Test
-    fun `every product gets a ranked row when they fit`() {
-        val rows = rankingRows(ranked(3), maxRows = 6)
+    fun `every product gets a ranked row`() {
+        val rows = rankingRows(ranked(3))
 
         assertEquals(
             listOf(
@@ -24,17 +24,18 @@ class RankingRowsTest {
         )
     }
 
+    /** S3: every website keeps its own ranked row (regression for verifier finding B1). */
     @Test
-    fun `the tail folds into one Other row when products do not fit`() {
-        val rows = rankingRows(ranked(8), maxRows = 6)
+    fun `every product keeps its own ranked row with seven websites`() {
+        val rows = rankingRows(ranked(7))
 
-        assertEquals(listOf(1, 2, 3, 4, 5, null), rows.map { it.rank })
-        assertEquals(RankingRow(null, "Other", "3 products", 92 + 93 + 94, 0.1 * 3), rows.last())
+        assertEquals((1..7).map { "Product $it" }, rows.map { it.name })
+        assertEquals((1..7).toList(), rows.map { it.rank })
     }
 
     @Test
     fun `the domain is hidden when it is already the name`() {
-        val rows = rankingRows(listOf(RankedProduct(Product("1", "shop.example", "shop.example"), 5, 1.0)), maxRows = 6)
+        val rows = rankingRows(listOf(RankedProduct(Product("1", "shop.example", "shop.example"), 5, 1.0)))
 
         assertEquals("", rows.single().detail)
     }

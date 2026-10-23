@@ -71,6 +71,13 @@ object Formats {
         Granularity.WEEK -> "Week of ${monthDay.format(start)}"
     }
 
+    /** Header text for the ranking list: which rows are on screen, or the count when all fit. */
+    fun rankingRange(firstVisible: Int, visibleRows: Int, total: Int): String {
+        if (total <= visibleRows) return "$total tracked"
+        val first = firstVisible.coerceIn(0, total - visibleRows)
+        return "${first + 1}–${first + visibleRows} of $total"
+    }
+
     private fun oneDecimal(value: Double): String {
         val tenths = (value * 10).roundToLong()
         return if (tenths % 10 == 0L) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
