@@ -76,6 +76,17 @@ class LoadTrafficDashboardTest {
     }
 
     @Test
+    fun `trend leaves out buckets that have not started yet`() = runTest {
+        // The clock reads 12:00 in Mexico City; DataFast returns every hour of the day.
+        val hours = (10..14).map { TrafficPoint(LocalDateTime.of(2026, 10, 23, it, 0), 1) }
+        val source = FakeAnalyticsSource(shop to ProductTraffic(3, hours))
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.TODAY)
+
+        assertEquals((10..12).map { LocalDateTime.of(2026, 10, 23, it, 0) }, dashboard.trend.map { it.start })
+    }
+
+    @Test
     fun `every product is queried with the selected period's window`() = runTest {
         val source = FakeAnalyticsSource(
             shop to ProductTraffic(1, emptyList()),

@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class LoadTrafficDashboard(
     private val source: AnalyticsSource,
@@ -27,7 +28,9 @@ class LoadTrafficDashboard(
             window = window,
             totalVisitors = total,
             ranking = rank(traffic, total),
-            trend = mergeTrends(traffic.map { (_, productTraffic) -> productTraffic.trend }),
+            trend = mergeTrends(traffic.map { (_, productTraffic) -> productTraffic.trend })
+                // Providers return whole days; buckets that have not started would read as zero visits.
+                .filterNot { it.start.isAfter(LocalDateTime.now(clock)) },
             updatedAt = clock.instant(),
         )
     }
