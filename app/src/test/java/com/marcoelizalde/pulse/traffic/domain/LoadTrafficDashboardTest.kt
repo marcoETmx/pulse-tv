@@ -7,6 +7,7 @@ import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 
 class LoadTrafficDashboardTest {
@@ -18,8 +19,8 @@ class LoadTrafficDashboardTest {
     private val blog = Product("2", "Blog", "blog.example")
     private val app = Product("3", "App", "app.example")
 
-    private val monday = Instant.parse("2026-10-19T06:00:00Z")
-    private val tuesday = Instant.parse("2026-10-20T06:00:00Z")
+    private val monday = LocalDateTime.of(2026, 10, 19, 0, 0)
+    private val tuesday = LocalDateTime.of(2026, 10, 20, 0, 0)
 
     @Test
     fun `total visitors is the sum of every product`() = runTest {

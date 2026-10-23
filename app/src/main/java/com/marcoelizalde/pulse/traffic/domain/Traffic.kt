@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.domain
 
 import java.time.Instant
+import java.time.LocalDateTime
 
 data class Product(
     val id: String,
@@ -8,9 +9,9 @@ data class Product(
     val domain: String,
 )
 
-/** Visitors in one time bucket that starts at [start]. */
+/** Visitors in one time bucket; [start] is wall-clock time in the report window's zone. */
 data class TrafficPoint(
-    val start: Instant,
+    val start: LocalDateTime,
     val visitors: Long,
 )
 

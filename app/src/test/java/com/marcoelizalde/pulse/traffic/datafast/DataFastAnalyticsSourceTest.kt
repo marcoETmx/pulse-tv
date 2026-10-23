@@ -1,0 +1,232 @@
+package com.marcoelizalde.pulse.traffic.datafast
+
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
+import com.marcoelizalde.pulse.traffic.domain.Granularity
+import com.marcoelizalde.pulse.traffic.domain.Product
+import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
+import com.marcoelizalde.pulse.traffic.domain.ReportWindow
+import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+import java.net.URI
+import java.net.URLDecoder
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+
+class DataFastAnalyticsSourceTest {
+    private val shop = Product("665f0b3c4d2e1a0012345678", "Shop", "shop.example")
+    private val window = ReportWindow(
+        start = LocalDate.of(2026, 10, 17),
+        end = LocalDate.of(2026, 10, 23),
+        zone = ZoneId.of("America/Mexico_City"),
+        granularity = Granularity.DAY,
+    )
+
+    @Test
+    fun `products lists the account websites with the bearer token`() = runTest {
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(
+                200,
+                """
+                {"status":"success","data":[
+                  {"_id":"665f0b3c4d2e1a0012345678","domain":"shop.example","name":"Shop","trackingId":"dfid_1","timezone":"America/Mexico_City","currency":"USD","role":"owner","createdAt":"2026-01-01T00:00:00.000Z"},
+                  {"_id":"665f0b3c4d2e1a0012345679","domain":"blog.example","name":null}
+                ]}
+                """,
+            ),
+        )
+
+        val products = DataFastAnalyticsSource("dft_secret", transport).products()
+
+        assertEquals(
+            listOf(shop, Product("665f0b3c4d2e1a0012345679", "blog.example", "blog.example")),
+            products,
+        )
+        val request = transport.requests.single()
+        assertEquals("https://datafa.st/api/v1/admin/websites", request.url)
+        assertEquals("Bearer dft_secret", request.headers["Authorization"])
+    }
+
+    @Test
+    fun `traffic reads the product's visitors and trend for the window`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/overview" to HttpResponse(
+                200,
+                """{"status":"success","data":[{"visitors":12450,"pageviews":16890,"currency":"USD"}]}""",
+            ),
+            "/analytics/timeseries" to HttpResponse(
+                200,
+                """
+                {"status":"success","fields":["visitors"],"interval":"day","timezone":"America/Mexico_City",
+                 "totals":{"visitors":999},
+                 "data":[{"timestamp":"2026-10-17T00:00:00Z","visitors":528},{"timestamp":"2026-10-18T00:00:00Z","visitors":610}],
+                 "pagination":{"limit":1000,"offset":0,"total":2}}
+                """,
+            ),
+        )
+
+        val traffic = DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window)
+
+        assertEquals(
+            ProductTraffic(
+                visitors = 12450,
+                trend = listOf(
+                    TrafficPoint(LocalDateTime.of(2026, 10, 17, 0, 0), 528),
+                    TrafficPoint(LocalDateTime.of(2026, 10, 18, 0, 0), 610),
+                ),
+            ),
+            traffic,
+        )
+        val overview = transport.request("/analytics/overview")
+        assertEquals(
+            mapOf(
+                "websiteId" to shop.id,
+                "startAt" to "2026-10-17",
+                "endAt" to "2026-10-23",
+                "timezone" to "America/Mexico_City",
+                "fields" to "visitors",
+            ),
+            overview.query,
+        )
+        val timeseries = transport.request("/analytics/timeseries")
+        assertEquals(
+            mapOf(
+                "websiteId" to shop.id,
+                "startAt" to "2026-10-17",
+                "endAt" to "2026-10-23",
+                "timezone" to "America/Mexico_City",
+                "fields" to "visitors",
+                "interval" to "day",
+                "limit" to "1000",
+            ),
+            timeseries.query,
+        )
+        assertTrue(transport.requests.all { it.headers["Authorization"] == "Bearer dft_secret" })
+    }
+
+    @Test
+    fun `trend interval follows the window granularity`() = runTest {
+        val intervals = Granularity.entries.associateWith { granularity ->
+            val transport = FakeTransport(
+                "/analytics/overview" to HttpResponse(200, """{"status":"success","data":[]}"""),
+                "/analytics/timeseries" to HttpResponse(200, """{"status":"success","data":[]}"""),
+            )
+            DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window.copy(granularity = granularity))
+            transport.request("/analytics/timeseries").query["interval"]
+        }
+
+        assertEquals(
+            mapOf(Granularity.HOUR to "hour", Granularity.DAY to "day", Granularity.WEEK to "week"),
+            intervals,
+        )
+    }
+
+    @Test
+    fun `a product without data has zero visitors`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/overview" to HttpResponse(200, """{"status":"success","data":[]}"""),
+            "/analytics/timeseries" to HttpResponse(200, """{"status":"success","data":[]}"""),
+        )
+
+        val traffic = DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window)
+
+        assertEquals(ProductTraffic(0, emptyList()), traffic)
+    }
+
+    @Test
+    fun `bucket timestamps keep their wall-clock time whatever the format`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/overview" to HttpResponse(200, """{"status":"success","data":[{"visitors":3}]}"""),
+            "/analytics/timeseries" to HttpResponse(
+                200,
+                """{"status":"success","data":[
+                  {"timestamp":"2026-10-23T14:00:00.000Z","visitors":1},
+                  {"timestamp":"2026-10-23T15:00:00-06:00","visitors":1},
+                  {"timestamp":"2026-10-23T16:00:00","visitors":1},
+                  {"timestamp":"2026-10-24","visitors":0}
+                ]}""",
+            ),
+        )
+
+        val trend = DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window).trend
+
+        assertEquals(
+            listOf(
+                LocalDateTime.of(2026, 10, 23, 14, 0),
+                LocalDateTime.of(2026, 10, 23, 15, 0),
+                LocalDateTime.of(2026, 10, 23, 16, 0),
+                LocalDateTime.of(2026, 10, 24, 0, 0),
+            ),
+            trend.map { it.start },
+        )
+    }
+
+    @Test
+    fun `an error response becomes an AnalyticsException with DataFast's message`() = runTest {
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(
+                400,
+                """{"status":"error","error":{"code":400,"message":"Invalid date range"}}""",
+            ),
+        )
+
+        val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
+
+        assertTrue(error is AnalyticsException)
+        assertEquals("DataFast error 400: Invalid date range", error?.message)
+    }
+
+    @Test
+    fun `a rejected token explains how to fix it`() = runTest {
+        val messages = listOf(401, 403).associateWith { status ->
+            val transport = FakeTransport("/admin/websites" to HttpResponse(status, """{"status":"error"}"""))
+            runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()?.message
+        }
+
+        assertEquals(
+            mapOf(
+                401 to "DataFast rejected the token (401). Check DATAFAST_TOKEN in local.properties.",
+                403 to "The DataFast token needs the analytics:read and websites:read permissions (403).",
+            ),
+            messages,
+        )
+    }
+
+    @Test
+    fun `a network failure becomes an AnalyticsException`() = runTest {
+        val transport = HttpTransport { _, _ -> throw IOException("timeout") }
+
+        val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
+
+        assertTrue(error is AnalyticsException)
+        assertEquals("Can't reach DataFast. Check the TV's internet connection.", error?.message)
+    }
+
+    private data class Request(val url: String, val headers: Map<String, String>) {
+        val path: String = URI(url).path.removePrefix("/api/v1")
+        val query: Map<String, String> = URI(url).rawQuery.orEmpty()
+            .split("&")
+            .filter { it.isNotEmpty() }
+            .associate { pair ->
+                val (key, value) = pair.split("=", limit = 2)
+                URLDecoder.decode(key, "UTF-8") to URLDecoder.decode(value, "UTF-8")
+            }
+    }
+
+    private class FakeTransport(vararg responses: Pair<String, HttpResponse>) : HttpTransport {
+        private val responsesByPath = responses.toMap()
+        val requests = mutableListOf<Request>()
+
+        fun request(path: String): Request = requests.single { it.path == path }
+
+        override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
+            val request = Request(url, headers)
+            synchronized(requests) { requests += request }
+            return responsesByPath.getValue(request.path)
+        }
+    }
+}
