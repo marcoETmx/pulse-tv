@@ -93,16 +93,14 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.width(16.dp))
         if (state.isDemo) {
+            Spacer(Modifier.width(16.dp))
             DemoBadge()
-        } else {
-            Text("Source: DataFast", style = PulseType.caption, color = PulseColors.TextMuted)
         }
     }
 }
 
-private fun statusLine(state: DashboardUiState): String {
+internal fun statusLine(state: DashboardUiState): String {
     val dashboard = state.dashboard
     return when {
         dashboard == null && state.error != null -> "Couldn't load data"
@@ -110,7 +108,7 @@ private fun statusLine(state: DashboardUiState): String {
         state.isLoading && state.isShowingStalePeriod -> "Loading ${Formats.period(state.selectedPeriod).lowercase()}…"
         state.error != null -> "Couldn't refresh: ${state.error} · showing data from ${UpdatedAt.format(dashboard.updatedAt)}"
         state.isLoading -> "Refreshing…"
-        else -> "Updated ${UpdatedAt.format(dashboard.updatedAt)} · refreshes every 5 min"
+        else -> "Updated ${UpdatedAt.format(dashboard.updatedAt)}"
     }
 }
 
