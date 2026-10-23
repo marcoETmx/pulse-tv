@@ -19,6 +19,8 @@ class UrlConnectionTransport(private val timeoutMillis: Int = 15_000) : HttpTran
             try {
                 connection.connectTimeout = timeoutMillis
                 connection.readTimeout = timeoutMillis
+                // Never replay the bearer token to wherever a redirect points.
+                connection.instanceFollowRedirects = false
                 headers.forEach(connection::setRequestProperty)
                 val status = connection.responseCode
                 val stream = if (status in 200..299) connection.inputStream else connection.errorStream

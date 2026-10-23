@@ -71,6 +71,8 @@ fun ErrorPanel(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
             style = PulseType.body,
             color = PulseColors.TextSecondary,
             textAlign = TextAlign.Center,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(26.dp))
         Button(onClick = onRetry) { Text("Try again", style = PulseType.pill) }

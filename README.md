@@ -61,9 +61,10 @@ and keeps the TV awake while it is open.
 
 ## Periods
 
-- **Today**: midnight to now, in hourly buckets.
+- **Today**: midnight to now, in hourly buckets (hours that have not started are not drawn).
 - **7, 15, 30 days**: today plus the previous 6, 14 or 29 days, in daily buckets.
-- **This year**: January 1 to today, in weekly buckets (daily during the first two months).
+- **This year**: January 1 to today. Buckets follow the window length: hourly on January 1,
+  daily up to 62 days, weekly after that.
 
 Dates use the TV's timezone.
 
@@ -92,6 +93,10 @@ ui/theme/      Colors, Space Grotesk typography, theme
 
 The token is compiled into the APK, so anyone with the APK file can extract it. Keep the APK private,
 and use a token limited to `analytics:read,websites:read`. Revoke it in DataFast if the APK leaks.
+
+The Gradle build cache is disabled in `gradle.properties` so the token is not copied into
+`~/.gradle/caches`; keep it that way. The HTTP client never follows redirects, so the token is only
+ever sent to `datafa.st`.
 
 ## Credits
 
