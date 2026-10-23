@@ -77,6 +77,17 @@ before retrying, keeping the last data on screen.
 
 Dates use the TV's timezone.
 
+## Launcher artwork
+
+Fire TV draws sideloaded apps' icons in a square centered on a gray 16:9 tile and squeezes
+non-square images, so `ic_launcher.png` is a transparent square with the "Pulse" lockup. The 16:9
+`banner.png` is still declared for Android TV / Google TV launchers. Both are rendered by
+`tools/RenderBranding.java` (usage in its header).
+
+The Fire TV launcher caches an app's icon per package name and does not refresh it on update,
+reinstall or reboot; that is why the package is `com.marcoelizalde.pulse.tv`. Get the artwork right
+before installing under a new package name.
+
 ## Architecture
 
 The code is organized by capability (`traffic`), with ports and adapters inside it:

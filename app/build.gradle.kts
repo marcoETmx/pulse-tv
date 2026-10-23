@@ -18,11 +18,11 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.marcoelizalde.pulse"
+        applicationId = "com.marcoelizalde.pulse.tv"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.1.1"
 
         // Read-only DataFast account token; local.properties is git-ignored.
         val token = localProperties.getProperty("DATAFAST_TOKEN", "").trim()
