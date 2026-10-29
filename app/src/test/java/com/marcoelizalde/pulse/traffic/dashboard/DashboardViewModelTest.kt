@@ -43,13 +43,13 @@ class DashboardViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `opens on today's dashboard`() = runTest(dispatcher) {
+    fun `opens on the last seven days`() = runTest(dispatcher) {
         withViewModel({ dashboardFor(it) }) { viewModel ->
             runCurrent()
 
-            assertEquals(listOf(Period.TODAY), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS), calls)
             assertEquals(
-                DashboardUiState(Period.TODAY, dashboardFor(Period.TODAY), isLoading = false, error = null, isDemo = true),
+                DashboardUiState(Period.LAST_7_DAYS, dashboardFor(Period.LAST_7_DAYS), isLoading = false, error = null, isDemo = true),
                 viewModel.state.value,
             )
         }
@@ -57,28 +57,28 @@ class DashboardViewModelTest {
 
     @Test
     fun `selecting a period keeps the previous data until the new one arrives`() = runTest(dispatcher) {
-        val sevenDays = CompletableDeferred<Unit>()
+        val today = CompletableDeferred<Unit>()
         withViewModel({ period ->
-            if (period == Period.LAST_7_DAYS) sevenDays.await()
+            if (period == Period.TODAY) today.await()
             dashboardFor(period)
         }) { viewModel ->
             runCurrent()
 
-            viewModel.select(Period.LAST_7_DAYS)
+            viewModel.select(Period.TODAY)
             runCurrent()
 
             with(viewModel.state.value) {
-                assertEquals(Period.LAST_7_DAYS, selectedPeriod)
-                assertEquals(Period.TODAY, dashboard?.period)
+                assertEquals(Period.TODAY, selectedPeriod)
+                assertEquals(Period.LAST_7_DAYS, dashboard?.period)
                 assertTrue(isLoading)
                 assertTrue(isShowingStalePeriod)
             }
 
-            sevenDays.complete(Unit)
+            today.complete(Unit)
             runCurrent()
 
             with(viewModel.state.value) {
-                assertEquals(dashboardFor(Period.LAST_7_DAYS), dashboard)
+                assertEquals(dashboardFor(Period.TODAY), dashboard)
                 assertFalse(isLoading)
                 assertFalse(isShowingStalePeriod)
             }
@@ -94,11 +94,11 @@ class DashboardViewModelTest {
 
             advanceTimeBy(5.minutes - 1.seconds)
             runCurrent()
-            assertEquals(listOf(Period.TODAY, Period.LAST_30_DAYS), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.LAST_30_DAYS), calls)
 
             advanceTimeBy(1.seconds)
             runCurrent()
-            assertEquals(listOf(Period.TODAY, Period.LAST_30_DAYS, Period.LAST_30_DAYS), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.LAST_30_DAYS, Period.LAST_30_DAYS), calls)
         }
     }
 
@@ -122,7 +122,7 @@ class DashboardViewModelTest {
             runCurrent()
 
             with(viewModel.state.value) {
-                assertEquals(dashboardFor(Period.TODAY), dashboard)
+                assertEquals(dashboardFor(Period.LAST_7_DAYS), dashboard)
                 assertNull(error)
             }
         }
@@ -140,7 +140,7 @@ class DashboardViewModelTest {
             runCurrent()
 
             with(viewModel.state.value) {
-                assertEquals(dashboardFor(Period.TODAY), dashboard)
+                assertEquals(dashboardFor(Period.LAST_7_DAYS), dashboard)
                 assertFalse(isLoading)
                 assertEquals("DataFast error 500", error)
             }
@@ -159,7 +159,7 @@ class DashboardViewModelTest {
             runCurrent()
 
             assertEquals(2, calls.size)
-            assertEquals(dashboardFor(Period.TODAY), viewModel.state.value.dashboard)
+            assertEquals(dashboardFor(Period.LAST_7_DAYS), viewModel.state.value.dashboard)
             assertNull(viewModel.state.value.error)
         }
     }
@@ -207,16 +207,16 @@ class DashboardViewModelTest {
     fun `returning to a period loaded minutes ago reuses it without calling DataFast`() = runTest(dispatcher) {
         withViewModel({ dashboardFor(it) }) { viewModel ->
             runCurrent()
-            viewModel.select(Period.LAST_7_DAYS)
+            viewModel.select(Period.TODAY)
             runCurrent()
             advanceTimeBy(2.minutes)
 
-            viewModel.select(Period.TODAY)
+            viewModel.select(Period.LAST_7_DAYS)
             runCurrent()
 
-            assertEquals(listOf(Period.TODAY, Period.LAST_7_DAYS), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.TODAY), calls)
             with(viewModel.state.value) {
-                assertEquals(dashboardFor(Period.TODAY), dashboard)
+                assertEquals(dashboardFor(Period.LAST_7_DAYS), dashboard)
                 assertFalse(isLoading)
                 assertFalse(isShowingStalePeriod)
             }
@@ -224,7 +224,7 @@ class DashboardViewModelTest {
             // It still refreshes once the reused data turns five minutes old.
             advanceTimeBy(3.minutes)
             runCurrent()
-            assertEquals(listOf(Period.TODAY, Period.LAST_7_DAYS, Period.TODAY), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.TODAY, Period.LAST_7_DAYS), calls)
         }
     }
 
@@ -232,14 +232,14 @@ class DashboardViewModelTest {
     fun `a period older than five minutes is reloaded when selected again`() = runTest(dispatcher) {
         withViewModel({ dashboardFor(it) }) { viewModel ->
             runCurrent()
-            viewModel.select(Period.LAST_7_DAYS)
+            viewModel.select(Period.TODAY)
             runCurrent()
             advanceTimeBy(6.minutes)
 
-            viewModel.select(Period.TODAY)
+            viewModel.select(Period.LAST_7_DAYS)
             runCurrent()
 
-            assertEquals(Period.TODAY, calls.last())
+            assertEquals(Period.LAST_7_DAYS, calls.last())
             assertEquals(4, calls.size) // today, 7 days, 7 days refreshed at 5 min, today again
         }
     }
@@ -252,7 +252,7 @@ class DashboardViewModelTest {
             viewModel.retry()
             runCurrent()
 
-            assertEquals(listOf(Period.TODAY, Period.TODAY), calls)
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.LAST_7_DAYS), calls)
         }
     }
 
@@ -287,7 +287,7 @@ class DashboardViewModelTest {
             runCurrent()
 
             with(viewModel.state.value) {
-                assertEquals(Period.TODAY, dashboard?.period)
+                assertEquals(Period.LAST_7_DAYS, dashboard?.period)
                 assertNull(error)
                 assertTrue(logos.isEmpty())
             }

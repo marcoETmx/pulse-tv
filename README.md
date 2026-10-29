@@ -70,6 +70,8 @@ before retrying, keeping the last data on screen.
 
 ## Periods
 
+Pulse opens on **7 days**.
+
 - **Today**: midnight to now, in hourly buckets (hours that have not started are not drawn).
 - **7, 15, 30 days**: today plus the previous 6, 14 or 29 days, in daily buckets.
 - **This year**: January 1 to today. Buckets follow the window length: hourly on January 1,

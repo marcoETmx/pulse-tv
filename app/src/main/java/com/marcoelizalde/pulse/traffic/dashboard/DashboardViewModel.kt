@@ -21,7 +21,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 data class DashboardUiState(
-    val selectedPeriod: Period = Period.TODAY,
+    val selectedPeriod: Period = Period.LAST_7_DAYS,
     val dashboard: TrafficDashboard? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
