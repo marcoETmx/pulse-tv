@@ -6,8 +6,8 @@ import com.marcoelizalde.pulse.traffic.domain.Sales
 /** One line of the ranking. */
 data class RankingRow(
     val rank: Int,
+    /** The product's name, which falls back to its domain when the website has none. */
     val name: String,
-    val detail: String,
     val visitors: Long,
     val share: Double,
     val productId: String,
@@ -15,13 +15,12 @@ data class RankingRow(
     val sales: Sales? = null,
 )
 
-/** Every product keeps its own row; the domain is shown only when it adds information. */
+/** Every product keeps its own row, labelled by name only. */
 fun rankingRows(ranking: List<RankedProduct>): List<RankingRow> =
     ranking.mapIndexed { index, ranked ->
         RankingRow(
             rank = index + 1,
             name = ranked.product.name,
-            detail = ranked.product.domain.takeIf { it != ranked.product.name }.orEmpty(),
             visitors = ranked.visitors,
             share = ranked.share,
             productId = ranked.product.id,

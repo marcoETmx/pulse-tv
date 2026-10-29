@@ -17,9 +17,9 @@ class RankingRowsTest {
 
         assertEquals(
             listOf(
-                RankingRow(1, "Product 1", "p1.example", 99, 0.1, productId = "1"),
-                RankingRow(2, "Product 2", "p2.example", 98, 0.1, productId = "2"),
-                RankingRow(3, "Product 3", "p3.example", 97, 0.1, productId = "3"),
+                RankingRow(1, "Product 1", 99, 0.1, productId = "1"),
+                RankingRow(2, "Product 2", 98, 0.1, productId = "2"),
+                RankingRow(3, "Product 3", 97, 0.1, productId = "3"),
             ),
             rows,
         )
@@ -46,10 +46,10 @@ class RankingRowsTest {
     }
 
     @Test
-    fun `the domain is hidden when it is already the name`() {
-        val rows = rankingRows(listOf(RankedProduct(Product("1", "shop.example", "shop.example"), 5, 1.0)))
+    fun `a row shows only the product name, never its domain`() {
+        val rows = rankingRows(listOf(RankedProduct(Product("1", "Shop", "shop.example"), 5, 1.0)))
 
-        assertEquals("", rows.single().detail)
+        assertEquals(listOf(RankingRow(1, "Shop", 5, 1.0, productId = "1")), rows)
     }
 
     @Test

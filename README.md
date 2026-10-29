@@ -3,7 +3,7 @@
 An Android TV app for keeping an eye on your products from the couch. The first screen is a
 traffic dashboard fed by [DataFast](https://datafa.st): total visitors and sales across every
 website in your account, a visitors-over-time chart, and a ranking of your products with what each
-one sold.
+one sold. Products are listed by their DataFast name, or by domain when a website has no name.
 
 Built for the Fire TV Stick (Fire OS 7, Android 9 / API 28) with Kotlin and Compose for TV.
 

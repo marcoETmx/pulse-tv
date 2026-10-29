@@ -181,21 +181,12 @@ private fun RankingLine(row: RankingRow, logo: ByteArray?, fraction: Float, orde
         ProductLogo(row.name, logo)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            // The name and the sales are measured first so they keep their space; the domain takes what is left.
+            // The sales are measured first so they keep their space; the name takes what is left.
             Row {
                 Text(
                     row.name,
-                    modifier = Modifier.alignByBaseline(),
-                    style = PulseType.rowName,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    row.detail,
                     modifier = Modifier.weight(1f).alignByBaseline(),
-                    style = PulseType.caption,
-                    color = PulseColors.TextMuted,
+                    style = PulseType.rowName,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
