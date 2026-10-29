@@ -41,7 +41,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -144,13 +143,12 @@ private fun DrawScope.drawTrend(
     val labelGap = 8.dp.toPx()
     val visitorLabels = ticks.map { textMeasurer.measure(Formats.compact(it), axisStyle) }
     val salesLabels = sales?.ticks?.map { textMeasurer.measure(Formats.moneyCompact(it, sales.currency), axisStyle) }
-    val endLabel = points.lastOrNull()?.let { textMeasurer.measure(Formats.grouped(it.visitors), EndLabelStyle) }
     // Gutters fit the labels, so the axis labels line up with the card's text edges.
     val plot = Rect(
         left = visitorLabels.maxOf { it.size.width } + labelGap,
         top = 10.dp.toPx(),
-        // Room on the right for the money axis, or the end-of-line value label.
-        right = size.width - labelGap - (salesLabels?.maxOf { it.size.width } ?: endLabel?.size?.width ?: 0),
+        // Room on the right for the money axis.
+        right = size.width - labelGap - (salesLabels?.maxOf { it.size.width } ?: 0),
         bottom = size.height - 28.dp.toPx(),
     )
     val axisMax = ticks.last().toFloat()
@@ -231,9 +229,8 @@ private fun DrawScope.drawTrend(
     drawCircle(PulseColors.Surface, radius = 7.dp.toPx(), center = marker)
     drawCircle(PulseColors.Series, radius = 5.dp.toPx(), center = marker)
 
-    if (cursor == null) {
-        endLabel?.let { drawEndLabel(it, marker, plot, aboveMarker = sales != null) }
-    } else {
+    // Values show only while exploring with the cursor.
+    if (cursor != null) {
         drawTooltip(
             detail = Formats.bucketDetail(points[index].start, granularity),
             value = "${Formats.grouped(points[index].visitors)} visitors",
@@ -260,27 +257,6 @@ private fun DrawScope.drawSalesBars(points: List<TrafficPoint>, sales: SalesAxis
         }
         drawPath(bar, PulseColors.SalesSeries)
     }
-}
-
-private val EndLabelStyle = PulseType.caption.copy(color = PulseColors.TextPrimary, fontWeight = FontWeight.SemiBold)
-
-private fun DrawScope.drawEndLabel(label: TextLayoutResult, marker: Offset, plot: Rect, aboveMarker: Boolean) {
-    if (!aboveMarker) {
-        val top = (marker.y - label.size.height / 2f).coerceIn(plot.top, plot.bottom - label.size.height)
-        drawText(label, topLeft = Offset(marker.x + 12.dp.toPx(), top))
-        return
-    }
-    // The money axis takes the right margin, so the label sits above the marker on a surface chip.
-    val padding = 4.dp.toPx()
-    val left = (marker.x - label.size.width / 2f).coerceIn(plot.left, plot.right - label.size.width) - padding
-    val top = (marker.y - 12.dp.toPx() - label.size.height).coerceAtLeast(plot.top) - padding
-    drawRoundRect(
-        PulseColors.Surface,
-        topLeft = Offset(left, top),
-        size = Size(label.size.width + padding * 2, label.size.height + padding * 2),
-        cornerRadius = CornerRadius(6.dp.toPx()),
-    )
-    drawText(label, topLeft = Offset(left + padding, top + padding))
 }
 
 private fun DrawScope.drawTooltip(detail: String, value: String, extra: String?, marker: Offset, plot: Rect, textMeasurer: TextMeasurer) {
