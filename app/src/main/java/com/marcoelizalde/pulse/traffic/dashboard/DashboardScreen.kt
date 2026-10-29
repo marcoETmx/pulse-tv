@@ -71,8 +71,8 @@ fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, o
 private fun DashboardContent(dashboard: TrafficDashboard, logos: Map<String, ByteArray>, dimmed: Boolean) {
     val alpha by animateFloatAsState(if (dimmed) 0.35f else 1f, label = "dim")
     Row(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }) {
-        VisitorsCard(dashboard, Modifier.weight(0.55f).fillMaxHeight())
+        VisitorsCard(dashboard, Modifier.weight(0.6f).fillMaxHeight())
         Spacer(Modifier.width(20.dp))
-        ProductRanking(dashboard.ranking, logos, Modifier.weight(0.45f).fillMaxHeight())
+        ProductRanking(dashboard.ranking, logos, Modifier.weight(0.4f).fillMaxHeight())
     }
 }
