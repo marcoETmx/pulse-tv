@@ -64,7 +64,6 @@ object PulseType {
         lineHeight = 50.sp,
         letterSpacing = (-1).sp,
     )
-    val wordmark = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = (-0.5).sp)
     val clock = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium, fontSize = 26.sp, lineHeight = 30.sp)
     val title = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium, fontSize = 18.sp, lineHeight = 24.sp)
     val overline = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, letterSpacing = 2.sp)

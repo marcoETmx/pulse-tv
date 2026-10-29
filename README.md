@@ -71,7 +71,8 @@ before retrying, keeping the last data on screen.
 
 ## Periods
 
-Pulse opens on **7 days**.
+Pulse opens on **7 days**. The header shows the date range of the data on screen and when it
+was last updated.
 
 - **Today**: midnight to now, in hourly buckets (hours that have not started are not drawn).
 - **7, 15, 30 days**: today plus the previous 6, 14 or 29 days, in daily buckets.

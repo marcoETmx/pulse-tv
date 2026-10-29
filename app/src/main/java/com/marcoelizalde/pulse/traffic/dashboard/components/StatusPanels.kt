@@ -90,7 +90,8 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
             modifier = Modifier.weight(1f),
             style = PulseType.caption,
             color = if (refreshFailed) PulseColors.TextPrimary else PulseColors.TextSecondary,
-            maxLines = 1,
+            // Room for a refresh error next to the time of the data on screen.
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
         if (state.isDemo) {

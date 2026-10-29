@@ -26,7 +26,6 @@ import com.marcoelizalde.pulse.traffic.dashboard.components.DashboardHeader
 import com.marcoelizalde.pulse.traffic.dashboard.components.ErrorPanel
 import com.marcoelizalde.pulse.traffic.dashboard.components.LoadingPanel
 import com.marcoelizalde.pulse.traffic.dashboard.components.ProductRanking
-import com.marcoelizalde.pulse.traffic.dashboard.components.StatusBar
 import com.marcoelizalde.pulse.traffic.dashboard.components.VisitorsCard
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -51,7 +50,7 @@ fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, o
         AuroraBackground()
         // 5% horizontal and vertical overscan-safe margins for 960x540dp TV screens.
         Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp)) {
-            DashboardHeader(state.selectedPeriod, onSelectPeriod, selectedPeriodFocus)
+            DashboardHeader(state, onSelect = onSelectPeriod, selectedPeriodFocus = selectedPeriodFocus)
             Spacer(Modifier.height(20.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val dashboard = state.dashboard
@@ -61,8 +60,6 @@ fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, o
                     else -> LoadingPanel()
                 }
             }
-            Spacer(Modifier.height(14.dp))
-            StatusBar(state)
         }
     }
 }

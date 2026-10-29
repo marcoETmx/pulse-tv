@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -19,11 +21,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Glow
 import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.ui.theme.PulseColors
@@ -35,7 +39,7 @@ import java.util.Locale
 
 @Composable
 fun DashboardHeader(
-    selected: Period,
+    state: DashboardUiState,
     onSelect: (Period) -> Unit,
     selectedPeriodFocus: FocusRequester,
     modifier: Modifier = Modifier,
@@ -43,11 +47,24 @@ fun DashboardHeader(
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         PulseGlyph(Modifier.size(width = 36.dp, height = 26.dp))
         Spacer(Modifier.width(12.dp))
-        Text("Pulse", style = PulseType.wordmark)
-        Spacer(Modifier.width(10.dp))
-        Text("Traffic", style = PulseType.title, color = PulseColors.TextMuted)
-        Spacer(Modifier.weight(1f))
-        PeriodSelector(selected, onSelect, selectedPeriodFocus)
+        // The date range of the data on screen (dimmed while another period loads), with its status below.
+        Column(Modifier.weight(1f)) {
+            state.dashboard?.window?.let { window ->
+                // Shrinks to fit (a range across years is long) rather than push the period selector.
+                BasicText(
+                    Formats.range(window),
+                    modifier = Modifier.fillMaxWidth(),
+                    style = PulseType.clock.copy(
+                        color = if (state.isShowingStalePeriod) PulseColors.TextMuted else PulseColors.TextPrimary,
+                    ),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = PulseType.clock.fontSize),
+                )
+            }
+            StatusBar(state)
+        }
+        Spacer(Modifier.width(16.dp))
+        PeriodSelector(state.selectedPeriod, onSelect, selectedPeriodFocus)
         Spacer(Modifier.width(32.dp))
         Clock()
     }

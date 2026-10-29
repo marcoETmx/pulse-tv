@@ -35,17 +35,11 @@ fun VisitorsCard(dashboard: TrafficDashboard, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
-                    Overline("Visitors · ${Formats.period(dashboard.period)}")
+                    Overline("Visitors")
                     AnimatedCount(dashboard.totalVisitors, PulseType.hero)
                 }
                 SalesFigure(dashboard.totalSales)
             }
-            val products = dashboard.ranking.size
-            Text(
-                "${Formats.range(dashboard.window)}  ·  across $products ${if (products == 1) "product" else "products"}",
-                style = PulseType.body,
-                color = PulseColors.TextSecondary,
-            )
             Spacer(Modifier.height(16.dp))
             TrendChart(
                 dashboard.trend,
