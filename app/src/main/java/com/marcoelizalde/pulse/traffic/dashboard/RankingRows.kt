@@ -13,7 +13,11 @@ data class RankingRow(
     val productId: String,
     /** Null when the product sold nothing in the period. */
     val sales: Sales? = null,
+    /** How visitors compare with the same stretch of the previous period; null when equal or unknown. */
+    val change: Change? = null,
 )
+
+enum class Change { UP, DOWN }
 
 /** Every product keeps its own row, labelled by name only. */
 fun rankingRows(ranking: List<RankedProduct>): List<RankingRow> =
@@ -25,6 +29,13 @@ fun rankingRows(ranking: List<RankedProduct>): List<RankingRow> =
             share = ranked.share,
             productId = ranked.product.id,
             sales = ranked.sales.takeUnless { it.isEmpty },
+            change = ranked.previousVisitors?.let { previous ->
+                when {
+                    ranked.visitors > previous -> Change.UP
+                    ranked.visitors < previous -> Change.DOWN
+                    else -> null
+                }
+            },
         )
     }
 

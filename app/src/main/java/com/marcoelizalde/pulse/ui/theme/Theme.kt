@@ -34,6 +34,10 @@ object PulseColors {
     /** Sales bars next to [Series]; passes the dataviz palette checks against [Surface] in dark mode. */
     val SalesSeries = Color(0xFFBB892A)
 
+    /** Up or down against the previous period; the arrow's direction carries the meaning, not only its color. */
+    val Up = Color(0xFF4ADE80)
+    val Down = Color(0xFFF87171)
+
     val BrandTeal = Color(0xFF2FD8B4)
     val BrandViolet = Color(0xFF8C7CF0)
     val BrandBlue = Color(0xFF2B6CB0)

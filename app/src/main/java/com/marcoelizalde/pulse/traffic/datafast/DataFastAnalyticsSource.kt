@@ -7,6 +7,7 @@ import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.Sales
+import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -20,6 +21,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.toKotlinDuration
@@ -88,6 +91,18 @@ class DataFastAnalyticsSource(
         )
     }
 
+    /** Unique visitors in [span], from `/analytics/overview`. */
+    override suspend fun visitors(product: Product, span: TimeSpan): Long =
+        get<Envelope<List<OverviewDto>>>(
+            "/analytics/overview",
+            listOf(
+                "websiteId" to product.id,
+                "startAt" to utcInstant(span.start, span.zone),
+                "endAt" to utcInstant(span.end, span.zone),
+                "fields" to "visitors",
+            ),
+        ).data?.firstOrNull()?.visitors ?: 0
+
     private suspend inline fun <reified T : Envelope<*>> get(
         path: String,
         query: List<Pair<String, String>> = emptyList(),
@@ -155,6 +170,10 @@ private fun parseBucketStart(timestamp: String): LocalDateTime =
         .recoverCatching { LocalDate.parse(timestamp).atStartOfDay() }
         .getOrElse { throw AnalyticsException("DataFast sent an unexpected response.", it) }
 
+/** DataFast reads a timestamp without an offset as UTC, whatever the timezone parameter says. */
+private fun utcInstant(time: LocalDateTime, zone: ZoneId): String =
+    time.atZone(zone).toInstant().truncatedTo(ChronoUnit.SECONDS).toString()
+
 @Serializable
 private data class Envelope<T>(
     val status: String? = null,
@@ -168,6 +187,9 @@ private data class TotalsDto(val visitors: Long? = null, val revenue: Double? = 
 
 @Serializable
 private data class WebsiteDto(@SerialName("_id") val id: String, val domain: String, val name: String? = null)
+
+@Serializable
+private data class OverviewDto(val visitors: Long = 0)
 
 @Serializable
 private data class MetadataDto(val logo: String? = null)

@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.demo
 
 import com.marcoelizalde.pulse.traffic.domain.Period
+import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -63,5 +64,18 @@ class DemoAnalyticsSourceTest {
         val window = Period.LAST_30_DAYS.windowEndingOn(today, zone)
 
         assertEquals(source.traffic(product, window), source.traffic(product, window))
+    }
+
+    @Test
+    fun `previous visitors are stable and grow with the span`() = runTest {
+        val product = source.products().first()
+        val start = LocalDateTime.of(2026, 10, 10, 0, 0)
+        fun span(hours: Long) = TimeSpan(start, start.plusHours(hours), zone)
+
+        val day = source.visitors(product, span(24))
+
+        assertTrue(day > 0)
+        assertEquals(day, source.visitors(product, span(24)))
+        assertTrue(source.visitors(product, span(24 * 7)) > day)
     }
 }

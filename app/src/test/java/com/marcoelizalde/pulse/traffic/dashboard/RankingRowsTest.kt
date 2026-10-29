@@ -59,4 +59,16 @@ class RankingRowsTest {
             listOf("marcoelizalde.com", "www.devzap.io", "ClaudeFlow", "42 Studio", "—").map(::monogram),
         )
     }
+
+    @Test
+    fun `a row points up or down by how its visitors compare with the previous period`() {
+        fun change(visitors: Long, previous: Long?) =
+            rankingRows(listOf(RankedProduct(Product("1", "Shop", "shop.example"), visitors, 1.0, previousVisitors = previous)))
+                .single().change
+
+        assertEquals(
+            listOf(Change.UP, Change.DOWN, null, null),
+            listOf(change(12, previous = 10), change(8, previous = 10), change(10, previous = 10), change(10, previous = null)),
+        )
+    }
 }

@@ -3,7 +3,8 @@
 An Android TV app for keeping an eye on your products from the couch. The first screen is a
 traffic dashboard fed by [DataFast](https://datafa.st): total visitors and sales across every
 website in your account, a visitors-over-time chart, and a ranking of your products with what each
-one sold. Products are listed by their DataFast name, or by domain when a website has no name.
+one sold and whether its visitors went up or down. Products are listed by their DataFast name, or by
+domain when a website has no name.
 
 Built for the Fire TV Stick (Fire OS 7, Android 9 / API 28) with Kotlin and Compose for TV.
 
@@ -64,10 +65,12 @@ and keeps the TV awake while it is open.
 
 ### DataFast rate limit
 
-DataFast allows 60 API requests per minute per token. A dashboard load costs one request per
-website (the website list is reused for an hour), a period you opened less than 5 minutes ago is
-shown again without calling DataFast, and after a `429` the app waits until DataFast's reset time
-before retrying, keeping the last data on screen.
+DataFast allows 60 API requests per minute per token. A dashboard load costs two requests per
+website, one for the period and one for the previous period (the website list is reused for an
+hour). A period you opened less than 5 minutes ago is shown again without calling DataFast, and
+after a `429` the app waits until DataFast's reset time before retrying, keeping the last data on
+screen. The previous period is asked for last, so if the limit runs out there, the ranking just
+shows no arrows.
 
 ## Periods
 
@@ -80,6 +83,10 @@ was last updated.
   daily up to 62 days, weekly after that.
 
 Dates use the TV's timezone.
+
+Each product in the ranking shows a green ▲ or a red ▼ when its visitors went up or down against
+the same stretch of the previous period: at 12:30 on **7 days**, that is the 7 days before, up to
+12:30. There is no arrow when the number is the same or the previous period could not be loaded.
 
 ## Sales
 

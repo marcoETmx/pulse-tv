@@ -165,6 +165,35 @@ class LoadTrafficDashboardTest {
     }
 
     @Test
+    fun `each product is compared with the same stretch of the previous period`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(50, emptyList()),
+            blog to ProductTraffic(25, emptyList()),
+            previous = mapOf(shop to 40L, blog to 30L),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        // The clock reads 12:00 in Mexico City.
+        val span = TimeSpan(LocalDateTime.of(2026, 10, 10, 0, 0), LocalDateTime.of(2026, 10, 16, 12, 0), zone)
+        assertEquals(listOf(40L, 30L), dashboard.ranking.map { it.previousVisitors })
+        assertEquals(mapOf(shop to span, blog to span), source.requestedSpans)
+    }
+
+    @Test
+    fun `a product whose previous visitors fail to load is shown without a comparison`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(50, emptyList()),
+            blog to ProductTraffic(25, emptyList()),
+            previous = mapOf(shop to 40L),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertEquals(listOf(40L, null), dashboard.ranking.map { it.previousVisitors })
+    }
+
+    @Test
     fun `dashboard is stamped with the load time`() = runTest {
         val source = FakeAnalyticsSource(shop to ProductTraffic(1, emptyList()))
 
@@ -187,9 +216,12 @@ class LoadTrafficDashboardTest {
     private class FakeAnalyticsSource(
         vararg traffic: Pair<Product, ProductTraffic>,
         private val failing: Set<Product> = emptySet(),
+        /** Visitors in the previous span; products missing here fail to load them. */
+        private val previous: Map<Product, Long> = emptyMap(),
     ) : AnalyticsSource {
         private val trafficByProduct = traffic.toMap()
         val requestedWindows = mutableMapOf<Product, ReportWindow>()
+        val requestedSpans = mutableMapOf<Product, TimeSpan>()
 
         override suspend fun products(): List<Product> = trafficByProduct.keys.toList() + failing
 
@@ -197,6 +229,11 @@ class LoadTrafficDashboardTest {
             if (product in failing) error("boom")
             requestedWindows[product] = window
             return trafficByProduct.getValue(product)
+        }
+
+        override suspend fun visitors(product: Product, span: TimeSpan): Long {
+            requestedSpans[product] = span
+            return previous[product] ?: error("no previous visitors")
         }
     }
 }

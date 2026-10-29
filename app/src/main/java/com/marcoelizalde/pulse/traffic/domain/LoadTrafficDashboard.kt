@@ -1,5 +1,6 @@
 package com.marcoelizalde.pulse.traffic.domain
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -18,9 +19,16 @@ class LoadTrafficDashboard(
     suspend operator fun invoke(period: Period): TrafficDashboard = coroutineScope {
         val window = period.windowEndingOn(LocalDate.now(clock), clock.zone)
         val gate = Semaphore(maxConcurrentRequests)
-        val traffic = source.products()
+        val products = source.products()
+        val traffic = products
             .map { product -> async { gate.withPermit { product to source.traffic(product, window) } } }
             .awaitAll()
+        // Asked for only once the period itself has loaded, so a rate limit costs the comparison, not the dashboard.
+        val span = period.previousSpan(window, LocalDateTime.now(clock))
+        val previous = products
+            .map { product -> async { gate.withPermit { product to previousVisitors(product, span) } } }
+            .awaitAll()
+            .toMap()
 
         val total = traffic.sumOf { (_, productTraffic) -> productTraffic.visitors }
         val totalSales = addUp(traffic.map { (_, productTraffic) -> productTraffic.sales })
@@ -29,7 +37,7 @@ class LoadTrafficDashboard(
             window = window,
             totalVisitors = total,
             totalSales = totalSales,
-            ranking = rank(traffic, total),
+            ranking = rank(traffic, total, previous),
             trend = mergeTrends(traffic.map { (_, productTraffic) -> productTraffic.trend })
                 // Providers return whole days; buckets that have not started would read as zero visits.
                 .filterNot { it.start.isAfter(LocalDateTime.now(clock)) }
@@ -39,11 +47,24 @@ class LoadTrafficDashboard(
         )
     }
 
-    private fun rank(traffic: List<Pair<Product, ProductTraffic>>, total: Long): List<RankedProduct> =
+    /** The comparison is only a hint, so a product whose previous visitors fail to load goes without one. */
+    private suspend fun previousVisitors(product: Product, span: TimeSpan): Long? = try {
+        source.visitors(product, span)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun rank(
+        traffic: List<Pair<Product, ProductTraffic>>,
+        total: Long,
+        previous: Map<Product, Long?>,
+    ): List<RankedProduct> =
         traffic
             .map { (product, productTraffic) ->
                 val share = if (total == 0L) 0.0 else productTraffic.visitors.toDouble() / total
-                RankedProduct(product, productTraffic.visitors, share, productTraffic.sales)
+                RankedProduct(product, productTraffic.visitors, share, productTraffic.sales, previous[product])
             }
             .sortedWith(compareByDescending<RankedProduct> { it.visitors }.thenBy { it.product.name.lowercase() })
 

@@ -41,6 +41,8 @@ data class RankedProduct(
     /** Fraction of the dashboard total, from 0.0 to 1.0. */
     val share: Double,
     val sales: Sales = Sales.NONE,
+    /** Visitors in the same stretch of the previous period; null when they could not be loaded. */
+    val previousVisitors: Long? = null,
 )
 
 data class TrafficDashboard(

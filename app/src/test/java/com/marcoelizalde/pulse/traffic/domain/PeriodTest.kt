@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.domain
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
 
 class PeriodTest {
@@ -56,5 +57,18 @@ class PeriodTest {
             ReportWindow(LocalDate.of(2026, 1, 1), january3, zone, Granularity.DAY),
             Period.THIS_YEAR.windowEndingOn(january3, zone),
         )
+    }
+
+    @Test
+    fun `the previous span is the same stretch one period earlier, up to the same time`() {
+        val now = LocalDateTime.of(2026, 10, 23, 12, 30)
+        fun previous(period: Period) = period.previousSpan(period.windowEndingOn(today, zone), now)
+        fun span(start: LocalDate, end: LocalDate) = TimeSpan(start.atStartOfDay(), end.atTime(12, 30), zone)
+
+        assertEquals(span(LocalDate.of(2026, 10, 22), LocalDate.of(2026, 10, 22)), previous(Period.TODAY))
+        assertEquals(span(LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 16)), previous(Period.LAST_7_DAYS))
+        assertEquals(span(LocalDate.of(2026, 9, 24), LocalDate.of(2026, 10, 8)), previous(Period.LAST_15_DAYS))
+        assertEquals(span(LocalDate.of(2026, 8, 25), LocalDate.of(2026, 9, 23)), previous(Period.LAST_30_DAYS))
+        assertEquals(span(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 10, 23)), previous(Period.THIS_YEAR))
     }
 }

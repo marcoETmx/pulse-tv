@@ -6,11 +6,13 @@ import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.Sales
+import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import kotlin.math.PI
 import kotlin.math.cos
@@ -52,6 +54,13 @@ class DemoAnalyticsSource(private val clock: Clock) : AnalyticsSource {
             trend = buckets.map { (start, visitors, payments) -> TrafficPoint(start, visitors, payments * priceCents) },
             sales = Sales(cents = payments * priceCents, payments = payments, currency = "$"),
         )
+    }
+
+    /** The daily volume over [span], drifting per product and span so the ranking has products going both ways. */
+    override suspend fun visitors(product: Product, span: TimeSpan): Long {
+        val days = ChronoUnit.MINUTES.between(span.start, span.end) / (24 * 60.0)
+        val drift = Random((product.id + span.start + "previous").hashCode()).nextDouble(0.75, 1.25)
+        return (dailyVisitors.getValue(product) * days * 0.8 * drift).roundToLong()
     }
 
     /** Whole payments; the fraction of one becomes a sale with that probability, stable per bucket. */

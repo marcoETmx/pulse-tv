@@ -6,6 +6,7 @@ import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
+import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -119,6 +120,28 @@ class DataFastAnalyticsSourceTest {
         assertEquals(Sales(cents = 12_640, payments = 24, currency = "$"), traffic.sales)
         assertEquals(listOf(12_640L), traffic.trend.map { it.salesCents })
         assertEquals(listOf("/analytics/timeseries"), transport.requests.map { it.path })
+    }
+
+    @Test
+    fun `previous visitors come from the overview, with the span sent as UTC instants`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/overview" to HttpResponse(200, """{"status":"success","data":[{"visitors":37}]}"""),
+        )
+        val span = TimeSpan(
+            start = LocalDateTime.of(2026, 10, 10, 0, 0),
+            end = LocalDateTime.of(2026, 10, 16, 12, 30, 15, 500_000_000),
+            zone = ZoneId.of("America/Mexico_City"),
+        )
+
+        val visitors = DataFastAnalyticsSource("dft_secret", transport).visitors(shop, span)
+
+        assertEquals(37L, visitors)
+        val query = transport.request("/analytics/overview").query
+        assertEquals(shop.id, query["websiteId"])
+        // DataFast reads a timestamp without an offset as UTC, whatever the timezone parameter says.
+        assertEquals("2026-10-10T06:00:00Z", query["startAt"])
+        assertEquals("2026-10-16T18:30:15Z", query["endAt"])
+        assertEquals("visitors", query["fields"])
     }
 
     @Test

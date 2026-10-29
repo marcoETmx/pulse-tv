@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.marcoelizalde.pulse.traffic.dashboard.Change
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.RankingRow
 import com.marcoelizalde.pulse.traffic.dashboard.rankingRows
@@ -221,7 +222,17 @@ private fun RankingLine(row: RankingRow, logo: ByteArray?, fraction: Float, orde
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.widthIn(min = 48.dp), horizontalAlignment = Alignment.End) {
-            Text(Formats.grouped(row.visitors), style = PulseType.rowValue, maxLines = 1)
+            Row {
+                row.change?.let { change ->
+                    Text(
+                        if (change == Change.UP) "▲" else "▼",
+                        modifier = Modifier.padding(end = 6.dp).alignByBaseline(),
+                        style = PulseType.caption,
+                        color = if (change == Change.UP) PulseColors.Up else PulseColors.Down,
+                    )
+                }
+                Text(Formats.grouped(row.visitors), modifier = Modifier.alignByBaseline(), style = PulseType.rowValue, maxLines = 1)
+            }
             Text(Formats.share(row.share), style = PulseType.caption, color = PulseColors.TextMuted)
         }
     }
