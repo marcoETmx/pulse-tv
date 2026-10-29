@@ -54,13 +54,13 @@ import com.marcoelizalde.pulse.ui.theme.PulseType
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-private const val VISIBLE_ROWS = 6
+private const val VISIBLE_ROWS = 7
 private val RowHeight = 44.dp
-private val RowGap = 6.dp
+private val RowGap = 4.dp
 private val RowShape = RoundedCornerShape(12.dp)
 
 /**
- * Every product in its own row. Six rows fit on screen; D-pad ▶ enters the list and ▲▼ moves
+ * Every product in its own row. Seven rows fit on screen; D-pad ▶ enters the list and ▲▼ moves
  * one row at a time, scrolling the rest into view.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -115,7 +115,7 @@ private fun RankingList(
     Column(
         Modifier
             .fillMaxWidth()
-            // Exactly six rows tall, so each ▲▼ step scrolls by one whole row.
+            // Exactly seven rows tall, so each ▲▼ step scrolls by one whole row.
             .height(RowHeight * VISIBLE_ROWS + RowGap * (VISIBLE_ROWS - 1))
             .onFocusChanged { onBrowsingChange(it.hasFocus) }
             // ▶ from the chart lands on the first row (or the last one focused), not the nearest one.
