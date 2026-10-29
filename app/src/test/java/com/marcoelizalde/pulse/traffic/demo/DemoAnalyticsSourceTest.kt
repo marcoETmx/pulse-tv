@@ -38,6 +38,26 @@ class DemoAnalyticsSourceTest {
     }
 
     @Test
+    fun `demo products sell in dollars`() = runTest {
+        val window = Period.LAST_30_DAYS.windowEndingOn(today, zone)
+
+        val sales = source.products().map { source.traffic(it, window).sales }
+
+        assertTrue(sales.any { it.cents > 0 && it.payments > 0 })
+        assertTrue(sales.all { it.currency == "$" })
+    }
+
+    @Test
+    fun `demo sales per bucket add up to the product's sales`() = runTest {
+        val window = Period.LAST_30_DAYS.windowEndingOn(today, zone)
+
+        source.products().forEach { product ->
+            val traffic = source.traffic(product, window)
+            assertEquals(traffic.sales.cents, traffic.trend.sumOf { it.salesCents })
+        }
+    }
+
+    @Test
     fun `numbers are stable between refreshes`() = runTest {
         val product = source.products().first()
         val window = Period.LAST_30_DAYS.windowEndingOn(today, zone)

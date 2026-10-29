@@ -18,6 +18,47 @@ class FormatsTest {
     }
 
     @Test
+    fun `money shows cents only when there are some`() {
+        assertEquals(
+            listOf("$0", "$139", "$8.62", "$6.40", "$1,234.50", "-$5", "MXN 120"),
+            listOf(
+                Formats.money(0, "$"),
+                Formats.money(13_900, "$"),
+                Formats.money(862, "$"),
+                Formats.money(640, "$"),
+                Formats.money(123_450, "$"),
+                Formats.money(-500, "$"),
+                Formats.money(12_000, "MXN"),
+            ),
+        )
+    }
+
+    @Test
+    fun `money without a known currency uses dollars`() {
+        assertEquals("$25", Formats.money(2_500, null))
+    }
+
+    @Test
+    fun `money axis labels are compact`() {
+        assertEquals(
+            listOf("$0", "$15", "$1.5K", "MXN 2K"),
+            listOf(Formats.moneyCompact(0, "$"), Formats.moneyCompact(15, "$"), Formats.moneyCompact(1_500, "$"), Formats.moneyCompact(2_000, "MXN")),
+        )
+    }
+
+    @Test
+    fun `aligned ticks share the other axis's gridlines and cover the maximum`() {
+        assertEquals(listOf(0L, 5L, 10L, 15L), Formats.alignedTicks(max = 9, steps = 3))
+        assertEquals(listOf(0L, 50L, 100L, 150L, 200L), Formats.alignedTicks(max = 139, steps = 4))
+        assertEquals(listOf(0L, 1L, 2L, 3L), Formats.alignedTicks(max = 0, steps = 3))
+    }
+
+    @Test
+    fun `payments are counted in words`() {
+        assertEquals(listOf("0 payments", "1 payment", "1,240 payments"), listOf(0L, 1L, 1_240L).map(Formats::payments))
+    }
+
+    @Test
     fun `compact numbers shorten thousands and millions`() {
         assertEquals(
             listOf("0", "999", "1K", "1.3K", "12.9K", "1M", "4.2M"),
@@ -69,10 +110,6 @@ class FormatsTest {
         assertEquals(
             listOf("14:00 – 15:00", "Wed, Oct 21", "Week of Oct 21"),
             Granularity.entries.map { Formats.bucketDetail(start, it) },
-        )
-        assertEquals(
-            listOf("Visitors per hour", "Visitors per day", "Visitors per week"),
-            Granularity.entries.map(Formats::trendTitle),
         )
     }
 

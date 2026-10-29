@@ -5,6 +5,7 @@ import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.RankedProduct
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -333,6 +334,7 @@ class DashboardViewModelTest {
         period = period,
         window = period.windowEndingOn(LocalDate.of(2026, 10, 23), ZoneId.of("UTC")),
         totalVisitors = 100,
+        totalSales = Sales.NONE,
         ranking = ranking,
         trend = emptyList(),
         updatedAt = Instant.EPOCH,

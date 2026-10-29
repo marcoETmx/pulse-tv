@@ -4,6 +4,7 @@ import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import kotlinx.coroutines.test.runTest
@@ -91,13 +92,33 @@ class DataFastAnalyticsSourceTest {
                 "startAt" to "2026-10-17",
                 "endAt" to "2026-10-23",
                 "timezone" to "America/Mexico_City",
-                "fields" to "visitors",
+                "fields" to "visitors,revenue,payments",
                 "interval" to "day",
                 "limit" to "1000",
             ),
             timeseries.query,
         )
         assertTrue(transport.requests.all { it.headers["Authorization"] == "Bearer dft_secret" })
+    }
+
+    @Test
+    fun `traffic reads the product's sales from the same request`() = runTest {
+        val transport = FakeTransport(
+            "/analytics/timeseries" to HttpResponse(
+                200,
+                """
+                {"status":"success","fields":["visitors","revenue","payments"],"interval":"day","currency":"$",
+                 "totals":{"visitors":43,"revenue":126.4,"revenueBreakdown":{"new":120,"renewal":6.4,"refund":0},"payments":24},
+                 "data":[{"timestamp":"2026-10-17T00:00:00Z","visitors":43,"revenue":126.4,"payments":24}]}
+                """,
+            ),
+        )
+
+        val traffic = DataFastAnalyticsSource("dft_secret", transport).traffic(shop, window)
+
+        assertEquals(Sales(cents = 12_640, payments = 24, currency = "$"), traffic.sales)
+        assertEquals(listOf(12_640L), traffic.trend.map { it.salesCents })
+        assertEquals(listOf("/analytics/timeseries"), transport.requests.map { it.path })
     }
 
     @Test

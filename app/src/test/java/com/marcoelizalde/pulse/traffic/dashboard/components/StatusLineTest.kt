@@ -2,6 +2,7 @@ package com.marcoelizalde.pulse.traffic.dashboard.components
 
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.domain.Period
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -16,6 +17,7 @@ class StatusLineTest {
         period = Period.TODAY,
         window = Period.TODAY.windowEndingOn(LocalDate.of(2026, 10, 23), ZoneId.of("UTC")),
         totalVisitors = 15,
+        totalSales = Sales.NONE,
         ranking = emptyList(),
         trend = emptyList(),
         updatedAt = updatedAt,

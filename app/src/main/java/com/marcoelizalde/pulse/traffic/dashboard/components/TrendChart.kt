@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,6 +27,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
@@ -38,6 +41,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -51,21 +55,40 @@ import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
 
 /**
- * Single-series area chart. When focused, D-pad left/right moves a crosshair across the buckets;
- * the TV equivalent of a hover tooltip.
+ * Visitors as an area chart, with sales as bars on a money axis on the right when the period has any.
+ * When focused, D-pad left/right moves a crosshair across the buckets; the TV equivalent of a hover tooltip.
  */
 @Composable
-fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, modifier: Modifier = Modifier) {
+fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurrency: String?, modifier: Modifier = Modifier) {
     val textMeasurer = rememberTextMeasurer()
     var focused by remember { mutableStateOf(false) }
     var cursor by remember(points) { mutableIntStateOf(points.lastIndex) }
     val reveal = remember(points) { Animatable(0f) }
     LaunchedEffect(points) { reveal.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
     val ticks = remember(points) { Formats.axisTicks(points.maxOfOrNull { it.visitors } ?: 0) }
+    // The money axis reuses the visitor gridlines, so the chart keeps a single set of lines.
+    val salesTicks = remember(points, ticks) {
+        val maxCents = points.maxOfOrNull { it.salesCents } ?: 0
+        if (maxCents > 0) Formats.alignedTicks((maxCents + 99) / 100, ticks.size - 1) else emptyList()
+    }
+    val sales = salesTicks.takeIf { it.isNotEmpty() }?.let { SalesAxis(it, salesCurrency) }
 
     Column(modifier) {
+        // The legend names the measures; color alone must not tell them apart.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(Formats.trendTitle(granularity), style = PulseType.title, color = PulseColors.TextSecondary)
+            LegendItem("Visitors") { drawLine(PulseColors.Series, Offset(0f, center.y), Offset(size.width, center.y), 2.dp.toPx(), StrokeCap.Round) }
+            if (sales != null) {
+                Spacer(Modifier.width(16.dp))
+                LegendItem("Sales") {
+                    val barWidth = 8.dp.toPx()
+                    drawRoundRect(
+                        PulseColors.SalesSeries,
+                        topLeft = Offset((size.width - barWidth) / 2, 0f),
+                        size = Size(barWidth, size.height),
+                        cornerRadius = CornerRadius(2.dp.toPx()),
+                    )
+                }
+            }
             Spacer(Modifier.weight(1f))
             Text(
                 if (focused) "◀ ▶ move through time" else "Press ▼ to explore",
@@ -90,9 +113,21 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, modifier: M
                 .focusable(enabled = points.isNotEmpty()),
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                drawTrend(points, granularity, ticks, if (focused) cursor else null, reveal.value, textMeasurer)
+                drawTrend(points, granularity, ticks, sales, if (focused) cursor else null, reveal.value, textMeasurer)
             }
         }
+    }
+}
+
+/** Right-hand money axis: tick values in whole currency units, aligned with the visitor gridlines. */
+private class SalesAxis(val ticks: List<Long>, val currency: String?)
+
+@Composable
+private fun LegendItem(label: String, swatch: DrawScope.() -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Canvas(Modifier.size(width = 14.dp, height = 12.dp), onDraw = swatch)
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = PulseType.caption, color = PulseColors.TextSecondary)
     }
 }
 
@@ -100,16 +135,22 @@ private fun DrawScope.drawTrend(
     points: List<TrafficPoint>,
     granularity: Granularity,
     ticks: List<Long>,
+    sales: SalesAxis?,
     cursor: Int?,
     reveal: Float,
     textMeasurer: TextMeasurer,
 ) {
     val axisStyle = PulseType.caption.copy(color = PulseColors.TextMuted)
+    val labelGap = 8.dp.toPx()
+    val visitorLabels = ticks.map { textMeasurer.measure(Formats.compact(it), axisStyle) }
+    val salesLabels = sales?.ticks?.map { textMeasurer.measure(Formats.moneyCompact(it, sales.currency), axisStyle) }
+    val endLabel = points.lastOrNull()?.let { textMeasurer.measure(Formats.grouped(it.visitors), EndLabelStyle) }
+    // Gutters fit the labels, so the axis labels line up with the card's text edges.
     val plot = Rect(
-        left = 48.dp.toPx(),
+        left = visitorLabels.maxOf { it.size.width } + labelGap,
         top = 10.dp.toPx(),
-        // Room on the right for the end-of-line value label.
-        right = size.width - 52.dp.toPx(),
+        // Room on the right for the money axis, or the end-of-line value label.
+        right = size.width - labelGap - (salesLabels?.maxOf { it.size.width } ?: endLabel?.size?.width ?: 0),
         bottom = size.height - 28.dp.toPx(),
     )
     val axisMax = ticks.last().toFloat()
@@ -117,7 +158,8 @@ private fun DrawScope.drawTrend(
     fun x(index: Int) = if (points.size == 1) plot.center.x else plot.left + index * plot.width / (points.size - 1)
 
     if (cursor != null) {
-        val inset = 8.dp.toPx()
+        // Inside the label gap, so the outline never touches the axis labels.
+        val inset = 4.dp.toPx()
         drawRoundRect(
             color = PulseColors.Series,
             topLeft = Offset(plot.left - inset, plot.top - inset),
@@ -128,7 +170,7 @@ private fun DrawScope.drawTrend(
         )
     }
 
-    ticks.forEach { tick ->
+    ticks.forEachIndexed { index, tick ->
         val tickY = y(tick)
         drawLine(
             color = if (tick == 0L) PulseColors.Baseline else PulseColors.Grid,
@@ -136,8 +178,9 @@ private fun DrawScope.drawTrend(
             end = Offset(plot.right, tickY),
             strokeWidth = 1f,
         )
-        val label = textMeasurer.measure(Formats.compact(tick), axisStyle)
-        drawText(label, topLeft = Offset(plot.left - 12.dp.toPx() - label.size.width, tickY - label.size.height / 2f))
+        val label = visitorLabels[index]
+        drawText(label, topLeft = Offset(plot.left - labelGap - label.size.width, tickY - label.size.height / 2f))
+        salesLabels?.get(index)?.let { drawText(it, topLeft = Offset(plot.right + labelGap, tickY - it.size.height / 2f)) }
     }
 
     if (points.isEmpty()) {
@@ -171,6 +214,11 @@ private fun DrawScope.drawTrend(
                 endY = plot.bottom,
             ),
         )
+        if (sales != null) {
+            drawSalesBars(points, sales, plot, ::x)
+            // A surface ring keeps the line readable where it crosses a bar.
+            drawPath(line, PulseColors.Surface, style = Stroke(4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
         drawPath(line, PulseColors.Series, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
     if (reveal < 1f && cursor == null) return
@@ -184,11 +232,12 @@ private fun DrawScope.drawTrend(
     drawCircle(PulseColors.Series, radius = 5.dp.toPx(), center = marker)
 
     if (cursor == null) {
-        drawEndLabel(Formats.grouped(points[index].visitors), marker, plot, textMeasurer)
+        endLabel?.let { drawEndLabel(it, marker, plot, aboveMarker = sales != null) }
     } else {
         drawTooltip(
             detail = Formats.bucketDetail(points[index].start, granularity),
             value = "${Formats.grouped(points[index].visitors)} visitors",
+            extra = sales?.let { "${Formats.money(points[index].salesCents, it.currency)} in sales" },
             marker = marker,
             plot = plot,
             textMeasurer = textMeasurer,
@@ -196,27 +245,62 @@ private fun DrawScope.drawTrend(
     }
 }
 
-private fun DrawScope.drawEndLabel(text: String, marker: Offset, plot: Rect, textMeasurer: TextMeasurer) {
-    val label = textMeasurer.measure(text, PulseType.caption.copy(color = PulseColors.TextPrimary, fontWeight = FontWeight.SemiBold))
-    val top = (marker.y - label.size.height / 2f).coerceIn(plot.top, plot.bottom - label.size.height)
-    drawText(label, topLeft = Offset(marker.x + 12.dp.toPx(), top))
+/** One bar per bucket, rounded at the data end and anchored to the baseline. */
+private fun DrawScope.drawSalesBars(points: List<TrafficPoint>, sales: SalesAxis, plot: Rect, x: (Int) -> Float) {
+    val axisMaxCents = sales.ticks.last() * 100f
+    val slot = if (points.size == 1) plot.width else plot.width / (points.size - 1)
+    val barWidth = (slot * 0.6f).coerceIn(2.dp.toPx(), 16.dp.toPx())
+    val radius = CornerRadius(minOf(4.dp.toPx(), barWidth / 2))
+    points.forEachIndexed { index, point ->
+        if (point.salesCents <= 0) return@forEachIndexed
+        val height = maxOf(point.salesCents / axisMaxCents * plot.height, 2.dp.toPx())
+        val left = x(index) - barWidth / 2
+        val bar = Path().apply {
+            addRoundRect(RoundRect(left, plot.bottom - height, left + barWidth, plot.bottom, topLeftCornerRadius = radius, topRightCornerRadius = radius))
+        }
+        drawPath(bar, PulseColors.SalesSeries)
+    }
 }
 
-private fun DrawScope.drawTooltip(detail: String, value: String, marker: Offset, plot: Rect, textMeasurer: TextMeasurer) {
+private val EndLabelStyle = PulseType.caption.copy(color = PulseColors.TextPrimary, fontWeight = FontWeight.SemiBold)
+
+private fun DrawScope.drawEndLabel(label: TextLayoutResult, marker: Offset, plot: Rect, aboveMarker: Boolean) {
+    if (!aboveMarker) {
+        val top = (marker.y - label.size.height / 2f).coerceIn(plot.top, plot.bottom - label.size.height)
+        drawText(label, topLeft = Offset(marker.x + 12.dp.toPx(), top))
+        return
+    }
+    // The money axis takes the right margin, so the label sits above the marker on a surface chip.
+    val padding = 4.dp.toPx()
+    val left = (marker.x - label.size.width / 2f).coerceIn(plot.left, plot.right - label.size.width) - padding
+    val top = (marker.y - 12.dp.toPx() - label.size.height).coerceAtLeast(plot.top) - padding
+    drawRoundRect(
+        PulseColors.Surface,
+        topLeft = Offset(left, top),
+        size = Size(label.size.width + padding * 2, label.size.height + padding * 2),
+        cornerRadius = CornerRadius(6.dp.toPx()),
+    )
+    drawText(label, topLeft = Offset(left + padding, top + padding))
+}
+
+private fun DrawScope.drawTooltip(detail: String, value: String, extra: String?, marker: Offset, plot: Rect, textMeasurer: TextMeasurer) {
     val detailText = textMeasurer.measure(detail, PulseType.caption.copy(color = PulseColors.TextSecondary))
     val valueText = textMeasurer.measure(value, PulseType.title.copy(color = PulseColors.TextPrimary, fontWeight = FontWeight.SemiBold))
+    val extraText = extra?.let { textMeasurer.measure(it, PulseType.title.copy(color = PulseColors.TextPrimary)) }
     val padding = 12.dp.toPx()
-    val width = maxOf(detailText.size.width, valueText.size.width) + padding * 2
-    val height = detailText.size.height + valueText.size.height + padding * 2
+    val width = maxOf(detailText.size.width, valueText.size.width, extraText?.size?.width ?: 0) + padding * 2
+    val height = detailText.size.height + valueText.size.height + (extraText?.size?.height ?: 0) + padding * 2
     val gap = 14.dp.toPx()
-    val left = (marker.x - width / 2).coerceIn(plot.left, plot.right - width)
-    val above = marker.y - gap - height
-    val top = if (above >= plot.top) above else marker.y + gap
+    // Beside the crosshair, so it never covers the bucket being read (its point or its bar).
+    val before = marker.x - gap - width
+    val left = if (before >= plot.left) before else minOf(marker.x + gap, plot.right - width)
+    val top = (marker.y - height / 2).coerceIn(plot.top, plot.bottom - height)
     val corner = CornerRadius(10.dp.toPx())
     drawRoundRect(PulseColors.SurfaceRaised, Offset(left, top), Size(width, height), corner)
     drawRoundRect(PulseColors.Hairline, Offset(left, top), Size(width, height), corner, style = Stroke(1f))
     drawText(detailText, topLeft = Offset(left + padding, top + padding))
     drawText(valueText, topLeft = Offset(left + padding, top + padding + detailText.size.height))
+    extraText?.let { drawText(it, topLeft = Offset(left + padding, top + padding + detailText.size.height + valueText.size.height)) }
 }
 
 /** First, last and two evenly spaced buckets in between. */

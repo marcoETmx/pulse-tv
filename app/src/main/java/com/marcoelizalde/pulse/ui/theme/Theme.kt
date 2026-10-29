@@ -28,6 +28,12 @@ object PulseColors {
     /** Data marks; passes the dataviz palette checks against [Surface] in dark mode. */
     val Series = Color(0xFF19AB8C)
 
+    /** Money, so sales never read as visitor counts. */
+    val Sales = Color(0xFFF2C14E)
+
+    /** Sales bars next to [Series]; passes the dataviz palette checks against [Surface] in dark mode. */
+    val SalesSeries = Color(0xFFBB892A)
+
     val BrandTeal = Color(0xFF2FD8B4)
     val BrandViolet = Color(0xFF8C7CF0)
     val BrandBlue = Color(0xFF2B6CB0)
@@ -49,6 +55,14 @@ object PulseType {
         fontSize = 80.sp,
         lineHeight = 86.sp,
         letterSpacing = (-2).sp,
+    )
+    /** A second headline figure next to [hero]. */
+    val figure = TextStyle(
+        fontFamily = SpaceGrotesk,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 44.sp,
+        lineHeight = 50.sp,
+        letterSpacing = (-1).sp,
     )
     val wordmark = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = (-0.5).sp)
     val clock = TextStyle(fontFamily = SpaceGrotesk, fontWeight = FontWeight.Medium, fontSize = 26.sp, lineHeight = 30.sp)

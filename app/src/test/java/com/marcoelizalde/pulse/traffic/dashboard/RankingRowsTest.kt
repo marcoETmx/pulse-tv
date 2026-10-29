@@ -2,6 +2,7 @@ package com.marcoelizalde.pulse.traffic.dashboard
 
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.RankedProduct
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -22,6 +23,17 @@ class RankingRowsTest {
             ),
             rows,
         )
+    }
+
+    @Test
+    fun `a row shows the product's sales only when it sold something`() {
+        val sold = Sales(cents = 13_900, payments = 1, currency = "$")
+        val ranking = listOf(
+            RankedProduct(Product("1", "Shop", "shop.example"), visitors = 20, share = 0.5, sales = sold),
+            RankedProduct(Product("2", "Blog", "blog.example"), visitors = 20, share = 0.5, sales = Sales(0, 0, "$")),
+        )
+
+        assertEquals(listOf(sold, null), rankingRows(ranking).map { it.sales })
     }
 
     /** S3: every website keeps its own ranked row (regression for verifier finding B1). */

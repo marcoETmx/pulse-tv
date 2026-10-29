@@ -6,6 +6,7 @@ import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -19,6 +20,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.toKotlinDuration
 
@@ -55,7 +57,10 @@ class DataFastAnalyticsSource(
         get<Envelope<List<MetadataDto>>>("/analytics/metadata", listOf("websiteId" to product.id, "fields" to "logo"))
             .data?.firstOrNull()?.logo?.takeIf { it.isNotBlank() }
 
-    /** One request per product: `totals.visitors` are the window's unique visitors, as in `/analytics/overview`. */
+    /**
+     * One request per product: `totals.visitors` are the window's unique visitors, as in `/analytics/overview`,
+     * and `totals.revenue` / `totals.payments` its sales.
+     */
     override suspend fun traffic(product: Product, window: ReportWindow): ProductTraffic {
         val timeseries = get<Envelope<List<BucketDto>>>(
             "/analytics/timeseries",
@@ -64,7 +69,7 @@ class DataFastAnalyticsSource(
                 "startAt" to window.start.toString(),
                 "endAt" to window.end.toString(),
                 "timezone" to window.zone.id,
-                "fields" to "visitors",
+                "fields" to "visitors,revenue,payments",
                 "interval" to window.granularity.apiValue,
                 "limit" to "1000",
             ),
@@ -72,7 +77,14 @@ class DataFastAnalyticsSource(
         val buckets = timeseries.data.orEmpty()
         return ProductTraffic(
             visitors = timeseries.totals?.visitors ?: buckets.sumOf { it.visitors },
-            trend = buckets.map { TrafficPoint(parseBucketStart(it.timestamp), it.visitors) },
+            trend = buckets.map {
+                TrafficPoint(parseBucketStart(it.timestamp), it.visitors, salesCents = (it.revenue * 100).roundToLong())
+            },
+            sales = Sales(
+                cents = ((timeseries.totals?.revenue ?: buckets.sumOf { it.revenue }) * 100).roundToLong(),
+                payments = timeseries.totals?.payments ?: buckets.sumOf { it.payments },
+                currency = timeseries.currency,
+            ),
         )
     }
 
@@ -144,10 +156,15 @@ private fun parseBucketStart(timestamp: String): LocalDateTime =
         .getOrElse { throw AnalyticsException("DataFast sent an unexpected response.", it) }
 
 @Serializable
-private data class Envelope<T>(val status: String? = null, val data: T? = null, val totals: TotalsDto? = null)
+private data class Envelope<T>(
+    val status: String? = null,
+    val data: T? = null,
+    val totals: TotalsDto? = null,
+    val currency: String? = null,
+)
 
 @Serializable
-private data class TotalsDto(val visitors: Long? = null)
+private data class TotalsDto(val visitors: Long? = null, val revenue: Double? = null, val payments: Long? = null)
 
 @Serializable
 private data class WebsiteDto(@SerialName("_id") val id: String, val domain: String, val name: String? = null)
@@ -156,7 +173,7 @@ private data class WebsiteDto(@SerialName("_id") val id: String, val domain: Str
 private data class MetadataDto(val logo: String? = null)
 
 @Serializable
-private data class BucketDto(val timestamp: String, val visitors: Long = 0)
+private data class BucketDto(val timestamp: String, val visitors: Long = 0, val revenue: Double = 0.0, val payments: Long = 0)
 
 @Serializable
 private data class ErrorEnvelope(val error: ErrorDto? = null)

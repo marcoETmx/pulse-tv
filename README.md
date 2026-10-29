@@ -1,8 +1,9 @@
 # Pulse TV
 
 An Android TV app for keeping an eye on your products from the couch. The first screen is a
-traffic dashboard fed by [DataFast](https://datafa.st): total visitors across every website in
-your account, a visitors-over-time chart, and a ranking of your products.
+traffic dashboard fed by [DataFast](https://datafa.st): total visitors and sales across every
+website in your account, a visitors-over-time chart, and a ranking of your products with what each
+one sold.
 
 Built for the Fire TV Stick (Fire OS 7, Android 9 / API 28) with Kotlin and Compose for TV.
 
@@ -53,7 +54,7 @@ and signed with the local debug key, because it is meant for sideloading only. O
 | ◀ ▶ on the top row | Move between Today, 7 days, 15 days, 30 days and This year |
 | OK | Load the focused period |
 | ▼ | Focus the chart |
-| ◀ ▶ on the chart | Move a cursor through the hours, days or weeks, with exact values |
+| ◀ ▶ on the chart | Move a cursor through the hours, days or weeks, with exact visitors and sales |
 | ▶ at the end of the chart | Enter the product ranking (first row, or the last one you focused) |
 | ▲ ▼ in the ranking | Move one product at a time; the header shows which rows are on screen |
 | ▲ | Back to the period selector |
@@ -78,6 +79,18 @@ Pulse opens on **7 days**.
   daily up to 62 days, weekly after that.
 
 Dates use the TV's timezone.
+
+## Sales
+
+Sales are the revenue and payments DataFast attributes to each website, so a product shows sales
+only once its payments are connected in DataFast. They arrive in the same request as the visitors,
+so they cost no extra rate-limit budget. Amounts use the currency DataFast reports; when websites
+report different currencies the total reads "Mixed currencies", because they cannot be added up.
+
+When the period has sales, the chart draws them as gold bars behind the visitors line, on a money
+axis on the right that shares the visitor gridlines. The two axes are scaled independently, so
+compare each measure with itself over time, not the height of a bar with the line. The chart
+cursor shows both values for each hour, day or week.
 
 ## Launcher artwork
 

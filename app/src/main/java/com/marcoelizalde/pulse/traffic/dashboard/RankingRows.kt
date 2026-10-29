@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
 import com.marcoelizalde.pulse.traffic.domain.RankedProduct
+import com.marcoelizalde.pulse.traffic.domain.Sales
 
 /** One line of the ranking. */
 data class RankingRow(
@@ -10,6 +11,8 @@ data class RankingRow(
     val visitors: Long,
     val share: Double,
     val productId: String,
+    /** Null when the product sold nothing in the period. */
+    val sales: Sales? = null,
 )
 
 /** Every product keeps its own row; the domain is shown only when it adds information. */
@@ -22,6 +25,7 @@ fun rankingRows(ranking: List<RankedProduct>): List<RankingRow> =
             visitors = ranked.visitors,
             share = ranked.share,
             productId = ranked.product.id,
+            sales = ranked.sales.takeUnless { it.isEmpty },
         )
     }
 

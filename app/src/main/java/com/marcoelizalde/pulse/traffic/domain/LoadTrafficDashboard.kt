@@ -23,14 +23,18 @@ class LoadTrafficDashboard(
             .awaitAll()
 
         val total = traffic.sumOf { (_, productTraffic) -> productTraffic.visitors }
+        val totalSales = addUp(traffic.map { (_, productTraffic) -> productTraffic.sales })
         TrafficDashboard(
             period = period,
             window = window,
             totalVisitors = total,
+            totalSales = totalSales,
             ranking = rank(traffic, total),
             trend = mergeTrends(traffic.map { (_, productTraffic) -> productTraffic.trend })
                 // Providers return whole days; buckets that have not started would read as zero visits.
-                .filterNot { it.start.isAfter(LocalDateTime.now(clock)) },
+                .filterNot { it.start.isAfter(LocalDateTime.now(clock)) }
+                // Amounts in different currencies cannot be added into one bar.
+                .map { if (totalSales == null) it.copy(salesCents = 0) else it },
             updatedAt = clock.instant(),
         )
     }
@@ -39,13 +43,23 @@ class LoadTrafficDashboard(
         traffic
             .map { (product, productTraffic) ->
                 val share = if (total == 0L) 0.0 else productTraffic.visitors.toDouble() / total
-                RankedProduct(product, productTraffic.visitors, share)
+                RankedProduct(product, productTraffic.visitors, share, productTraffic.sales)
             }
             .sortedWith(compareByDescending<RankedProduct> { it.visitors }.thenBy { it.product.name.lowercase() })
+
+    private fun addUp(sales: List<Sales>): Sales? {
+        val currencies = sales.filterNot { it.isEmpty }.mapNotNull { it.currency }.distinct()
+        if (currencies.size > 1) return null
+        return Sales(
+            cents = sales.sumOf { it.cents },
+            payments = sales.sumOf { it.payments },
+            currency = currencies.singleOrNull() ?: sales.firstNotNullOfOrNull { it.currency },
+        )
+    }
 
     private fun mergeTrends(trends: List<List<TrafficPoint>>): List<TrafficPoint> =
         trends.flatten()
             .groupBy { it.start }
-            .map { (start, points) -> TrafficPoint(start, points.sumOf { it.visitors }) }
+            .map { (start, points) -> TrafficPoint(start, points.sumOf { it.visitors }, points.sumOf { it.salesCents }) }
             .sortedBy { it.start }
 }

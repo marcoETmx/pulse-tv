@@ -5,6 +5,7 @@ import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
+import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import java.time.Clock
 import java.time.DayOfWeek
@@ -26,16 +27,38 @@ class DemoAnalyticsSource(private val clock: Clock) : AnalyticsSource {
         Product("demo-atlas", "Atlas Docs", "atlasdocs.com") to 140,
     )
 
+    /** Price in cents and share of visitors who buy; Atlas Docs is free. */
+    private val pricing = mapOf(
+        "demo-northwind" to (2_900L to 0.004),
+        "demo-lumen" to (900L to 0.008),
+        "demo-orbit" to (4_900L to 0.003),
+        "demo-pixel" to (1_900L to 0.002),
+    )
+
     override suspend fun products(): List<Product> = dailyVisitors.keys.toList()
 
     override suspend fun traffic(product: Product, window: ReportWindow): ProductTraffic {
         val daily = dailyVisitors.getValue(product)
-        val trend = buckets(window).map { start ->
-            TrafficPoint(start, visitorsIn(product, start, window.granularity, daily))
+        val (priceCents, conversion) = pricing[product.id] ?: (0L to 0.0)
+        val buckets = buckets(window).map { start ->
+            val visitors = visitorsIn(product, start, window.granularity, daily)
+            Triple(start, visitors, paymentsIn(product, start, visitors, conversion))
         }
         // Unique visitors over a window are fewer than the sum of its buckets.
         val uniqueRatio = if (window.granularity == Granularity.HOUR) 0.92 else 0.8
-        return ProductTraffic((trend.sumOf { it.visitors } * uniqueRatio).roundToLong(), trend)
+        val payments = buckets.sumOf { (_, _, payments) -> payments }
+        return ProductTraffic(
+            visitors = (buckets.sumOf { (_, visitors, _) -> visitors } * uniqueRatio).roundToLong(),
+            trend = buckets.map { (start, visitors, payments) -> TrafficPoint(start, visitors, payments * priceCents) },
+            sales = Sales(cents = payments * priceCents, payments = payments, currency = "$"),
+        )
+    }
+
+    /** Whole payments; the fraction of one becomes a sale with that probability, stable per bucket. */
+    private fun paymentsIn(product: Product, start: LocalDateTime, visitors: Long, conversion: Double): Long {
+        val expected = visitors * conversion
+        val extra = if (Random((product.id + start + "sale").hashCode()).nextDouble() < expected % 1) 1 else 0
+        return expected.toLong() + extra
     }
 
     private fun buckets(window: ReportWindow): List<LocalDateTime> = when (window.granularity) {

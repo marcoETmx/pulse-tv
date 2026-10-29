@@ -2,6 +2,7 @@ package com.marcoelizalde.pulse.traffic.domain
 
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Clock
@@ -32,6 +33,44 @@ class LoadTrafficDashboardTest {
         val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
 
         assertEquals(150L, dashboard.totalVisitors)
+    }
+
+    @Test
+    fun `total sales add up every product's revenue and payments`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(120, emptyList(), Sales(cents = 13_900, payments = 1, currency = "$")),
+            blog to ProductTraffic(30, emptyList(), Sales(cents = 862, payments = 2, currency = "$")),
+            app to ProductTraffic(10, emptyList(), Sales(cents = 0, payments = 0, currency = "$")),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertEquals(Sales(cents = 14_762, payments = 3, currency = "$"), dashboard.totalSales)
+    }
+
+    @Test
+    fun `sales in different currencies have no total`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(120, emptyList(), Sales(cents = 13_900, payments = 1, currency = "$")),
+            blog to ProductTraffic(30, emptyList(), Sales(cents = 500, payments = 1, currency = "€")),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertNull(dashboard.totalSales)
+    }
+
+    @Test
+    fun `each ranked product keeps its own sales`() = runTest {
+        val shopSales = Sales(cents = 13_900, payments = 1, currency = "$")
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(120, emptyList(), shopSales),
+            blog to ProductTraffic(30, emptyList()),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertEquals(listOf(shopSales, Sales.NONE), dashboard.ranking.map { it.sales })
     }
 
     @Test
@@ -73,6 +112,30 @@ class LoadTrafficDashboardTest {
         val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
 
         assertEquals(listOf(TrafficPoint(monday, 6), TrafficPoint(tuesday, 12)), dashboard.trend)
+    }
+
+    @Test
+    fun `trend adds every product's sales per bucket`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(15, listOf(TrafficPoint(monday, 5, salesCents = 900), TrafficPoint(tuesday, 10)), dollars(900)),
+            blog to ProductTraffic(3, listOf(TrafficPoint(monday, 1, salesCents = 250), TrafficPoint(tuesday, 2, salesCents = 100)), dollars(350)),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertEquals(listOf(1_150L, 100L), dashboard.trend.map { it.salesCents })
+    }
+
+    @Test
+    fun `sales in different currencies are left out of the trend`() = runTest {
+        val source = FakeAnalyticsSource(
+            shop to ProductTraffic(5, listOf(TrafficPoint(monday, 5, salesCents = 900)), dollars(900)),
+            blog to ProductTraffic(1, listOf(TrafficPoint(monday, 1, salesCents = 500)), Sales(500, 1, "€")),
+        )
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.LAST_7_DAYS)
+
+        assertEquals(listOf(TrafficPoint(monday, 6, salesCents = 0)), dashboard.trend)
     }
 
     @Test
@@ -118,6 +181,8 @@ class LoadTrafficDashboardTest {
 
         assertTrue(result.exceptionOrNull() is IllegalStateException)
     }
+
+    private fun dollars(cents: Long) = Sales(cents, payments = 1, currency = "$")
 
     private class FakeAnalyticsSource(
         vararg traffic: Pair<Product, ProductTraffic>,
