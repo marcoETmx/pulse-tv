@@ -6,7 +6,9 @@ website in your account, a visitors-over-time chart, and a ranking of your produ
 one sold and whether its visitors went up or down. Products are listed by their DataFast name, or by
 domain when a website has no name.
 
-Built for the Fire TV Stick (Fire OS 7, Android 9 / API 28) with Kotlin and Compose for TV.
+Runs on Android TV 9 (API 28) or later, Google TV included, and on Fire TV with Fire OS 7 or later.
+Fire TV models on Vega OS, starting with the Fire TV Stick 4K Select, can't install Android apps, so
+Pulse doesn't run on them. Built with Kotlin and Compose for TV, and tested on a Fire TV Stick Lite.
 
 ![Pulse TV dashboard running on demo data](docs/screenshot.png)
 
@@ -43,12 +45,20 @@ DATAFAST_TOKEN=dft_your_token_here
 
 Without a token the app runs on clearly labelled **demo data**, which is handy for trying the design.
 
-### 3. Build and install on the Fire TV
+### 3. Build and install on the TV
 
-Enable **ADB debugging** on the Fire TV (Settings → My Fire TV → Developer options), then:
+Turn on ADB debugging on the TV:
+
+- **Fire TV**: Settings → My Fire TV → Developer options → **ADB debugging**. ADB listens on port 5555.
+- **Android TV and Google TV**: press the build number seven times in Settings → System → About
+  (Device Preferences → About on older Android TV) to show Developer options, and turn on debugging
+  there. Menu names and how ADB connects over the network vary by device and Android version; see
+  [Connect to a device over Wi-Fi](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi).
+
+Then connect and install:
 
 ```sh
-adb connect <fire-tv-ip>:5555
+adb connect <tv-ip>:<port>
 ./gradlew installRelease
 ```
 
@@ -57,7 +67,7 @@ install directory.
 
 The release build is minified with R8 (about 1.6 MB, cold start around 2.6 s on a Fire TV Stick Lite)
 and signed with the local debug key, because it is meant for sideloading only. Open **Pulse** from
-*Your Apps & Channels*.
+the TV's apps (*Your Apps & Channels* on Fire TV).
 
 ## Using it with the remote
 
