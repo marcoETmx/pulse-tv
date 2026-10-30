@@ -9,7 +9,10 @@ import java.util.Locale
 enum class AppLanguage(val key: String, private val catalog: PulseStrings?) {
     SYSTEM("system", null),
     ENGLISH("en", EnglishStrings),
-    SPANISH("es", SpanishStrings);
+    SPANISH("es", SpanishStrings),
+    FRENCH("fr", FrenchStrings),
+    GERMAN("de", GermanStrings),
+    ITALIAN("it", ItalianStrings);
 
     /** The catalog to show. [SYSTEM] follows [systemLocale] when Pulse speaks its language, else English. */
     fun strings(systemLocale: Locale): PulseStrings =
