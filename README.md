@@ -64,11 +64,10 @@ and signed with the local debug key, because it is meant for sideloading only. O
 
 ### Menu
 
-The menu slides in from the right over the dimmed dashboard, with the focus on the current period.
-▲ ▼ move through it, OK picks an option and closes it, and ☰ or Back close it without changes;
-the focus then goes back to where it was.
+The menu slides in from the right over the dimmed dashboard, with the focus on the current refresh
+interval. ▲ ▼ move through it, OK picks an option and closes it, and ☰ or Back close it without
+changes; the focus then goes back to where it was. Periods are picked on the top row, not in the menu.
 
-- **Period**: the five periods, with ✓ on the current one.
 - **Auto refresh**: every 5, 10 or 15 minutes, with ✓ on the current one. The choice is kept across
   restarts.
 - **Refresh now**: reloads right away, skipping data loaded minutes ago. It reads "Refreshing…" and

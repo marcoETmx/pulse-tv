@@ -59,7 +59,6 @@ import com.marcoelizalde.pulse.BuildConfig
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
-import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
 import kotlin.time.toJavaDuration
@@ -76,12 +75,11 @@ internal fun KeyEvent.isMenuPress(): Boolean =
 /**
  * Side panel opened with the remote's ☰ button or the header's menu button. It lives in its own dialog
  * window, so the D-pad cannot leave it and Back closes it; ☰ closes it too. Focus starts on the current
- * period, and goes back to where it was when the menu closes.
+ * refresh interval, and goes back to where it was when the menu closes. Periods stay on the header pills.
  */
 @Composable
 fun DashboardMenu(
     state: DashboardUiState,
-    onSelectPeriod: (Period) -> Unit,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
     onRefreshNow: () -> Unit,
     onDismiss: () -> Unit,
@@ -99,7 +97,7 @@ fun DashboardMenu(
             contentAlignment = Alignment.CenterEnd,
         ) {
             AnimatedVisibility(visibleState = shown, enter = slideInHorizontally { it } + fadeIn()) {
-                MenuPanel(state, onSelectPeriod, onSelectRefreshInterval, onRefreshNow)
+                MenuPanel(state, onSelectRefreshInterval, onRefreshNow)
             }
         }
     }
@@ -108,12 +106,11 @@ fun DashboardMenu(
 @Composable
 private fun MenuPanel(
     state: DashboardUiState,
-    onSelectPeriod: (Period) -> Unit,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
-    val currentPeriod = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { currentPeriod.requestFocus() } }
+    val currentInterval = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { currentInterval.requestFocus() } }
 
     // The panel reaches the screen's edge, so its content keeps the dashboard's 5% overscan-safe margins there.
     Column(
@@ -126,23 +123,14 @@ private fun MenuPanel(
         Text("Menu", style = PulseType.title)
         Spacer(Modifier.height(14.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            MenuSection("Period")
-            Period.entries.forEach { period ->
-                val current = period == state.selectedPeriod
-                MenuOption(
-                    Formats.period(period),
-                    checked = current,
-                    onClick = { onSelectPeriod(period) },
-                    modifier = if (current) Modifier.focusRequester(currentPeriod) else Modifier,
-                )
-            }
-            Spacer(Modifier.height(14.dp))
             MenuSection("Auto refresh")
             RefreshInterval.entries.forEach { interval ->
+                val current = interval == state.refreshInterval
                 MenuOption(
                     Formats.refreshInterval(interval),
-                    checked = interval == state.refreshInterval,
+                    checked = current,
                     onClick = { onSelectRefreshInterval(interval) },
+                    modifier = if (current) Modifier.focusRequester(currentInterval) else Modifier,
                 )
             }
             Spacer(Modifier.height(10.dp))

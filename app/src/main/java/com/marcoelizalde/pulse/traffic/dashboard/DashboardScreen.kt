@@ -89,10 +89,6 @@ fun DashboardScreen(
         // Every choice closes the menu, and focus goes back to where it was.
         DashboardMenu(
             state,
-            onSelectPeriod = { period ->
-                onSelectPeriod(period)
-                menuOpen = false
-            },
             onSelectRefreshInterval = { interval ->
                 onSelectRefreshInterval(interval)
                 menuOpen = false
