@@ -15,8 +15,9 @@ interface PulseStrings {
     val locale: Locale
     val groupingSeparator: Char
     val decimalSeparator: Char
-    val thousandsSuffix: String
-    val millionsSuffix: String
+
+    /** How large numbers are shortened, smallest unit first: 1,000 is "K" and 1,000,000 is "M" in English. */
+    val compactUnits: List<Pair<Long, String>>
     val percentSuffix: String
     val currencyAfterAmount: Boolean
     val monthDayPattern: String

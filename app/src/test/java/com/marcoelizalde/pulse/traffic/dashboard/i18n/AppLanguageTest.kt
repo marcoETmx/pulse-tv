@@ -12,8 +12,17 @@ class AppLanguageTest {
         assertSame(FrenchStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("fr-CA")))
         assertSame(GermanStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("de-AT")))
         assertSame(ItalianStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("it-IT")))
+        assertSame(JapaneseStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("ja-JP")))
+        assertSame(KoreanStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("ko-KR")))
         assertSame(EnglishStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("en-GB")))
         assertSame(EnglishStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("pt-BR")))
+    }
+
+    @Test
+    fun `any Chinese TV gets Simplified Chinese, the only Chinese Pulse speaks`() {
+        assertSame(ChineseStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("zh-CN")))
+        assertSame(ChineseStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("zh-TW")))
+        assertSame(ChineseStrings, AppLanguage.SYSTEM.strings(Locale.forLanguageTag("zh-Hant-HK")))
     }
 
     @Test
@@ -25,11 +34,11 @@ class AppLanguageTest {
     @Test
     fun `each language is named in itself, and the system default in the language on screen`() {
         assertEquals(
-            listOf("System default", "English", "Español", "Français", "Deutsch", "Italiano"),
+            listOf("System default", "English", "Español", "Français", "Deutsch", "Italiano", "日本語", "简体中文", "한국어"),
             AppLanguage.entries.map { it.label(EnglishStrings) },
         )
         assertEquals(
-            listOf("Idioma del sistema", "English", "Español", "Français", "Deutsch", "Italiano"),
+            listOf("Idioma del sistema", "English", "Español", "Français", "Deutsch", "Italiano", "日本語", "简体中文", "한국어"),
             AppLanguage.entries.map { it.label(SpanishStrings) },
         )
         assertEquals(

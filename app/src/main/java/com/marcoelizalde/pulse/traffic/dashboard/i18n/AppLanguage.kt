@@ -12,7 +12,12 @@ enum class AppLanguage(val key: String, private val catalog: PulseStrings?) {
     SPANISH("es", SpanishStrings),
     FRENCH("fr", FrenchStrings),
     GERMAN("de", GermanStrings),
-    ITALIAN("it", ItalianStrings);
+    ITALIAN("it", ItalianStrings),
+    JAPANESE("ja", JapaneseStrings),
+
+    /** Simplified Chinese, also for TVs set to Traditional Chinese. */
+    CHINESE("zh", ChineseStrings),
+    KOREAN("ko", KoreanStrings);
 
     /** The catalog to show. [SYSTEM] follows [systemLocale] when Pulse speaks its language, else English. */
     fun strings(systemLocale: Locale): PulseStrings =

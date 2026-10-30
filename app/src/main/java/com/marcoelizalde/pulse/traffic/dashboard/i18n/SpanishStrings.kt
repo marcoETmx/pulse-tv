@@ -10,8 +10,7 @@ object SpanishStrings : PulseStrings {
     override val locale: Locale = Locale.forLanguageTag("es-MX")
     override val groupingSeparator = ','
     override val decimalSeparator = '.'
-    override val thousandsSuffix = "K"
-    override val millionsSuffix = "M"
+    override val compactUnits = listOf(1_000L to "K", 1_000_000L to "M")
     override val percentSuffix = "%"
     override val currencyAfterAmount = false
     override val monthDayPattern = "d MMM"

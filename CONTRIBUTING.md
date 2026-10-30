@@ -30,11 +30,13 @@ Every text on screen lives in a catalog in `traffic/dashboard/i18n`, one per lan
 1. Copy `EnglishStrings.kt` to a new catalog, such as `PortugueseStrings.kt`, and translate it. The
    build fails until every text has a translation, so nothing falls back to English unnoticed.
 2. In the same catalog, say how the language writes numbers and dates: its `locale` (month and weekday
-   names), separators, abbreviations, percent sign, where the currency goes, and the date patterns.
+   names), separators, the units that shorten large numbers ("K" and "M", or "万" and "億" in
+   Japanese), percent sign, where the currency goes, and the date patterns.
 3. Add the language to `AppLanguage` with its language code, so the menu offers it and System default
    picks it when the TV uses that language.
 4. Add a test like `SpanishStringsTest`, and look at the dashboard and the open menu on a 1920×1080
-   screen: translations often run longer than English.
+   screen: translations often run longer than English. Characters that Space Grotesk lacks, such as
+   Japanese, are drawn with the TV's own font, so check them on a real TV too.
 
 ## Commit messages
 

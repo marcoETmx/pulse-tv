@@ -14,8 +14,7 @@ object FrenchStrings : PulseStrings {
     override val groupingSeparator = '\u00A0'
     override val decimalSeparator = ','
     // Unspaced, so the chart's axis labels stay clear of the first bar.
-    override val thousandsSuffix = "k"
-    override val millionsSuffix = "M"
+    override val compactUnits = listOf(1_000L to "k", 1_000_000L to "M")
     override val percentSuffix = "\u00A0%"
     override val currencyAfterAmount = true
     override val monthDayPattern = "d MMM"
