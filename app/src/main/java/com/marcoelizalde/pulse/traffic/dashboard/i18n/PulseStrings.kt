@@ -69,4 +69,9 @@ interface PulseStrings {
     val statusRetrying: String
     fun statusNext(time: String): String
     val demoData: String
+    val languageSection: String
+    val systemLanguage: String
+
+    /** This language's name, written in itself, for the menu. */
+    val languageName: String
 }

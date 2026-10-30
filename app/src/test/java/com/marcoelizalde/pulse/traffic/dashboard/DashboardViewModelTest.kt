@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
 import androidx.lifecycle.viewModelScope
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
@@ -442,6 +443,28 @@ class DashboardViewModelTest {
         }
     }
 
+    @Test
+    fun `a saved language is used from the start`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, languages = Saved(AppLanguage.SPANISH)) { viewModel ->
+            assertEquals(AppLanguage.SPANISH, viewModel.state.value.language)
+        }
+    }
+
+    @Test
+    fun `choosing a language saves it without calling DataFast`() = runTest(dispatcher) {
+        val store = Saved<AppLanguage>()
+        withViewModel({ dashboardFor(it) }, languages = store) { viewModel ->
+            runCurrent()
+            assertEquals(AppLanguage.SYSTEM, viewModel.state.value.language)
+
+            viewModel.setLanguage(AppLanguage.SPANISH)
+
+            assertEquals(AppLanguage.SPANISH, store.saved)
+            assertEquals(AppLanguage.SPANISH, viewModel.state.value.language)
+            assertEquals(1, calls.size)
+        }
+    }
+
     private val shop = Product("1", "Shop", "shop.example")
     private val blog = Product("2", "Blog", "blog.example")
 
@@ -460,6 +483,7 @@ class DashboardViewModelTest {
         noinline loadLogo: suspend (Product) -> ByteArray? = { null },
         refreshIntervals: SettingStore<RefreshInterval> = Saved(),
         rankingOrders: SettingStore<RankingOrder> = Saved(),
+        languages: SettingStore<AppLanguage> = Saved(),
         block: TestScope.(DashboardViewModel) -> Unit,
     ) {
         val viewModel = DashboardViewModel(
@@ -471,6 +495,7 @@ class DashboardViewModelTest {
             loadLogo = loadLogo,
             refreshIntervals = refreshIntervals,
             rankingOrders = rankingOrders,
+            languages = languages,
             timeSource = testScheduler.timeSource,
         )
         try {

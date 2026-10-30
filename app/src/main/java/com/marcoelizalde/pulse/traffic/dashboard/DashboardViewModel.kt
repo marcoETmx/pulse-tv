@@ -2,6 +2,7 @@ package com.marcoelizalde.pulse.traffic.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
@@ -31,6 +32,7 @@ data class DashboardUiState(
     val refreshInterval: RefreshInterval = RefreshInterval.DEFAULT,
     /** What Top products ranks by, as chosen; the screen falls back to visitors when sales cannot be compared. */
     val rankingOrder: RankingOrder = RankingOrder.DEFAULT,
+    val language: AppLanguage = AppLanguage.DEFAULT,
 ) {
     /** The data on screen belongs to another period while the selected one loads. */
     val isShowingStalePeriod: Boolean get() = dashboard != null && dashboard.period != selectedPeriod
@@ -42,6 +44,7 @@ class DashboardViewModel(
     private val loadLogo: suspend (Product) -> ByteArray? = { null },
     private val refreshIntervals: SettingStore<RefreshInterval> = NothingSaved(),
     private val rankingOrders: SettingStore<RankingOrder> = NothingSaved(),
+    private val languages: SettingStore<AppLanguage> = NothingSaved(),
     private val retryAfterFailure: Duration = 30.seconds,
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) : ViewModel() {
@@ -50,6 +53,7 @@ class DashboardViewModel(
             isDemo = isDemo,
             refreshInterval = refreshIntervals.load() ?: RefreshInterval.DEFAULT,
             rankingOrder = rankingOrders.load() ?: RankingOrder.DEFAULT,
+            language = languages.load() ?: AppLanguage.DEFAULT,
         ),
     )
 
@@ -81,10 +85,6 @@ class DashboardViewModel(
         if (!mutableState.value.isLoading) restart(reuseRecent = false)
     }
 
-    /**
-     * Saves [interval] and paces refreshes with it from now on: data on screen older than [interval]
-     * reloads right away, otherwise the next refresh comes [interval] after the last load.
-     */
     /** Saves [order] for Top products. It only reorders the data on screen, so DataFast is not asked again. */
     fun setRankingOrder(order: RankingOrder) {
         if (order == mutableState.value.rankingOrder) return
@@ -92,6 +92,17 @@ class DashboardViewModel(
         rankingOrders.save(order)
     }
 
+    /** Saves [language]. Only the words on screen change, so DataFast is not asked again. */
+    fun setLanguage(language: AppLanguage) {
+        if (language == mutableState.value.language) return
+        mutableState.update { it.copy(language = language) }
+        languages.save(language)
+    }
+
+    /**
+     * Saves [interval] and paces refreshes with it from now on: data on screen older than [interval]
+     * reloads right away, otherwise the next refresh comes [interval] after the last load.
+     */
     fun setRefreshInterval(interval: RefreshInterval) {
         if (interval == mutableState.value.refreshInterval) return
         mutableState.update { it.copy(refreshInterval = interval) }

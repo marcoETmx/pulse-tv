@@ -82,6 +82,9 @@ object EnglishStrings : PulseStrings {
     override val statusRetrying = "retrying soon"
     override fun statusNext(time: String) = "next $time"
     override val demoData = "Demo data"
+    override val languageSection = "Language"
+    override val systemLanguage = "System default"
+    override val languageName = "English"
 
     /** A period's name inside a sentence: "Loading 30 days…", "showing today from 14:05". */
     private fun inSentence(period: Period) = period(period).lowercase()

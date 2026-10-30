@@ -1,5 +1,6 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -52,5 +53,17 @@ class SettingStoreTest {
 
         file.writeText("revenue")
         assertEquals(null, RankingOrder.store(file).load())
+    }
+
+    @Test
+    fun `a saved language is read back after a restart, and an unknown one means nothing was chosen`() {
+        val file = File(folder.root, "language")
+
+        AppLanguage.store(file).save(AppLanguage.SPANISH)
+        assertEquals("es", file.readText())
+        assertEquals(AppLanguage.SPANISH, AppLanguage.store(file).load())
+
+        file.writeText("klingon")
+        assertEquals(null, AppLanguage.store(file).load())
     }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,8 +33,10 @@ import com.marcoelizalde.pulse.traffic.dashboard.components.LoadingPanel
 import com.marcoelizalde.pulse.traffic.dashboard.components.ProductRanking
 import com.marcoelizalde.pulse.traffic.dashboard.components.VisitorsCard
 import com.marcoelizalde.pulse.traffic.dashboard.components.isMenuPress
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
+import java.util.Locale
 
 /** Container: wires the view model to the screen and pauses refreshes while the app is not visible. */
 @Composable
@@ -43,13 +46,18 @@ fun DashboardRoute(viewModel: DashboardViewModel) {
         viewModel.resume()
         onStopOrDispose { viewModel.pause() }
     }
-    DashboardScreen(
-        state,
-        onSelectPeriod = viewModel::select,
-        onSelectRefreshInterval = viewModel::setRefreshInterval,
-        onSelectRankingOrder = viewModel::setRankingOrder,
-        onRefreshNow = viewModel::refreshNow,
-    )
+    // Every text below is in the chosen language, or the TV's when none was chosen.
+    val formats = remember(state.language) { Formats(state.language.strings(Locale.getDefault())) }
+    CompositionLocalProvider(LocalFormats provides formats) {
+        DashboardScreen(
+            state,
+            onSelectPeriod = viewModel::select,
+            onSelectRefreshInterval = viewModel::setRefreshInterval,
+            onSelectRankingOrder = viewModel::setRankingOrder,
+            onSelectLanguage = viewModel::setLanguage,
+            onRefreshNow = viewModel::refreshNow,
+        )
+    }
 }
 
 @Composable
@@ -58,6 +66,7 @@ fun DashboardScreen(
     onSelectPeriod: (Period) -> Unit,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
     onSelectRankingOrder: (RankingOrder) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
     val selectedPeriodFocus = remember { FocusRequester() }
@@ -102,6 +111,10 @@ fun DashboardScreen(
             },
             onSelectRankingOrder = { order ->
                 onSelectRankingOrder(order)
+                menuOpen = false
+            },
+            onSelectLanguage = { language ->
+                onSelectLanguage(language)
                 menuOpen = false
             },
             onRefreshNow = {

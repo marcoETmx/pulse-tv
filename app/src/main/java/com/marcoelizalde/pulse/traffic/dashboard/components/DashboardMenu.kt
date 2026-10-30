@@ -59,9 +59,10 @@ import com.marcoelizalde.pulse.BuildConfig
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
-import com.marcoelizalde.pulse.traffic.dashboard.i18n.PulseStrings
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.PulseStrings
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
 import kotlin.time.toJavaDuration
@@ -85,6 +86,7 @@ fun DashboardMenu(
     state: DashboardUiState,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
     onSelectRankingOrder: (RankingOrder) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onRefreshNow: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -101,7 +103,7 @@ fun DashboardMenu(
             contentAlignment = Alignment.CenterEnd,
         ) {
             AnimatedVisibility(visibleState = shown, enter = slideInHorizontally { it } + fadeIn()) {
-                MenuPanel(state, onSelectRefreshInterval, onSelectRankingOrder, onRefreshNow)
+                MenuPanel(state, onSelectRefreshInterval, onSelectRankingOrder, onSelectLanguage, onRefreshNow)
             }
         }
     }
@@ -112,6 +114,7 @@ private fun MenuPanel(
     state: DashboardUiState,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
     onSelectRankingOrder: (RankingOrder) -> Unit,
+    onSelectLanguage: (AppLanguage) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
     val formats = LocalFormats.current
@@ -149,20 +152,35 @@ private fun MenuPanel(
                     onClick = { onSelectRankingOrder(order) },
                 )
             }
-            Spacer(Modifier.height(10.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(PulseColors.Hairline))
-            Spacer(Modifier.height(10.dp))
+            MenuDivider()
             MenuOption(
                 if (state.isLoading) strings.refreshing else strings.refreshNow,
                 checked = false,
                 onClick = onRefreshNow,
                 enabled = !state.isLoading,
             )
+            // Last, below the fold: a language is chosen once, while the choices above change day to day.
+            MenuDivider()
+            MenuSection(strings.languageSection)
+            AppLanguage.entries.forEach { language ->
+                MenuOption(
+                    language.label(strings),
+                    checked = language == state.language,
+                    onClick = { onSelectLanguage(language) },
+                )
+            }
         }
         Spacer(Modifier.height(14.dp))
         Text(menuSource(state.isDemo, BuildConfig.VERSION_NAME, strings), style = PulseType.caption, color = PulseColors.TextMuted)
         Text(menuStatus(state, formats), style = PulseType.caption, color = PulseColors.TextMuted)
     }
+}
+
+@Composable
+private fun MenuDivider() {
+    Spacer(Modifier.height(10.dp))
+    Box(Modifier.fillMaxWidth().height(1.dp).background(PulseColors.Hairline))
+    Spacer(Modifier.height(10.dp))
 }
 
 @Composable

@@ -88,6 +88,10 @@ changes; the focus then goes back to where it was. Periods are picked on the top
   - The choice is kept across restarts. It only reorders the data on screen, so it costs no DataFast requests.
 - **Refresh now**: reloads right away, skipping data loaded minutes ago. It reads "Refreshing…" and
   can't be picked while a load is running.
+- **Language**: System default, English or Español, each named in its own language. System default
+  follows the TV's language when Pulse speaks it, and English otherwise. Numbers and dates follow the
+  language too, and the choice is kept across restarts. It sits last, below the fold, since it is
+  picked once.
 - At the bottom: where the data comes from (DataFast or demo), the app version, when the data was
   updated, and when the next refresh comes.
 
@@ -175,6 +179,7 @@ traffic/
   demo/        Deterministic demo source used when no token is set
   logos/       Product logos: DataFast's, else the site's icon; cached on disk
   dashboard/   View model, display formats, and Compose for TV screen and components
+    i18n/      One text catalog per language, and the language choice
 net/           HTTP transport shared by the DataFast adapter and the logo lookups
 ui/theme/      Colors, Space Grotesk typography, theme
 ```
