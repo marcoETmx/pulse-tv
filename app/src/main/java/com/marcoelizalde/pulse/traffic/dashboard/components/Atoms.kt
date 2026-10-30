@@ -124,6 +124,6 @@ fun DemoBadge(modifier: Modifier = Modifier) {
             .border(1.dp, PulseColors.BrandViolet.copy(alpha = 0.5f), shape)
             .padding(horizontal = 14.dp, vertical = 5.dp),
     ) {
-        Text("DEMO DATA · add DATAFAST_TOKEN to local.properties", style = PulseType.caption)
+        Text("DEMO DATA", style = PulseType.caption)
     }
 }

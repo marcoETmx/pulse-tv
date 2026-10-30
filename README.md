@@ -111,7 +111,7 @@ seconds, but it arrives in milliseconds; Pulse reads both.)
 ## Periods
 
 Pulse opens on **7 days**. The header shows the date range of the data on screen and when it
-was last updated.
+was last updated; on demo data, a **DEMO DATA** badge takes the place of the update time.
 
 - **Today**: midnight to now, in hourly buckets (hours that have not started are not drawn).
 - **7, 15, 30 days**: today plus the previous 6, 14 or 29 days, in daily buckets.

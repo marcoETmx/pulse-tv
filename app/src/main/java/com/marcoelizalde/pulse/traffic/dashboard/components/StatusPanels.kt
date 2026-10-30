@@ -85,21 +85,28 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         if (refreshFailed) WarningGlyph(Modifier.size(14.dp)) else LiveDot(pulseKey = state.dashboard?.updatedAt)
         Spacer(Modifier.width(10.dp))
-        Text(
-            statusLine(state),
-            modifier = Modifier.weight(1f),
-            style = PulseType.caption,
-            color = if (refreshFailed) PulseColors.TextPrimary else PulseColors.TextSecondary,
-            // Room for a refresh error next to the time of the data on screen.
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (state.isDemo) {
-            Spacer(Modifier.width(16.dp))
+        if (showsDemoBadge(state)) {
             DemoBadge()
+        } else {
+            Text(
+                statusLine(state),
+                modifier = Modifier.weight(1f),
+                style = PulseType.caption,
+                color = if (refreshFailed) PulseColors.TextPrimary else PulseColors.TextSecondary,
+                // Room for a refresh error next to the time of the data on screen.
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
+
+/**
+ * Demo data's update time means nothing, so the demo badge takes its place; the header has no room
+ * for both. Loading and errors still show as text.
+ */
+internal fun showsDemoBadge(state: DashboardUiState): Boolean =
+    state.isDemo && state.dashboard != null && !state.isLoading && state.error == null
 
 internal fun statusLine(state: DashboardUiState): String {
     val dashboard = state.dashboard
