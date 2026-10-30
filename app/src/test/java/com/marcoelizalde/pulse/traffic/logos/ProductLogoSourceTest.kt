@@ -86,14 +86,25 @@ class ProductLogoSourceTest {
     }
 
     @Test
-    fun `a failed lookup is retried next time instead of being cached as no logo`() = runTest {
-        assertNull(source(failing = setOf("datafast", "site")).logo(shop))
+    fun `a failed lookup is reported and retried next time instead of being cached as no logo`() = runTest {
+        val failure = runCatching { source(failing = setOf("datafast", "site")).logo(shop) }.exceptionOrNull()
+        assertEquals("429", failure?.message)
         lookups.clear()
 
         val logo = source(dataFastUrl = "https://cdn/df.png").logo(shop)
 
         assertArrayEquals(dataFastLogo, logo)
         assertEquals(listOf("datafast", "download:https://cdn/df.png"), lookups)
+    }
+
+    @Test
+    fun `a failed lookup that still finds a logo returns and caches it`() = runTest {
+        val source = source(siteUrl = "https://shop.example/icon.png", failing = setOf("datafast"))
+
+        assertArrayEquals(siteLogo, source.logo(shop))
+        lookups.clear()
+        assertArrayEquals(siteLogo, source.logo(shop))
+        assertEquals(emptyList<String>(), lookups)
     }
 
     @Test

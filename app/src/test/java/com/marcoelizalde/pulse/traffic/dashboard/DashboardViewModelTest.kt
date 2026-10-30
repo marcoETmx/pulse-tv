@@ -26,6 +26,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -276,6 +277,27 @@ class DashboardViewModelTest {
             advanceTimeBy(5.minutes)
             runCurrent()
             assertEquals(listOf(shop.id, blog.id), logoCalls)
+        }
+    }
+
+    @Test
+    fun `a logo that failed to load is asked again with the next refresh`() = runTest(dispatcher) {
+        val logoCalls = mutableListOf<String>()
+        withViewModel(
+            load = { dashboardFor(it, ranking = listOf(ranked(shop))) },
+            loadLogo = { product ->
+                logoCalls += product.id
+                if (logoCalls.size == 1) throw IOException("timeout") else byteArrayOf(7)
+            },
+        ) { viewModel ->
+            runCurrent()
+            assertTrue(viewModel.state.value.logos.isEmpty())
+
+            advanceTimeBy(5.minutes)
+            runCurrent()
+
+            assertEquals(listOf(shop.id, shop.id), logoCalls)
+            assertArrayEquals(byteArrayOf(7), viewModel.state.value.logos[shop.id])
         }
     }
 

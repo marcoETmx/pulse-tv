@@ -110,7 +110,10 @@ class DashboardViewModel(
         }
     }
 
-    /** Fetches each product's logo once, one at a time, since logos share DataFast's rate limit. */
+    /**
+     * Fetches each product's logo, one at a time, since logos share DataFast's rate limit. A logo or a
+     * definite "no logo" is final; a lookup that failed is asked again with the next dashboard load.
+     */
     private fun loadLogos(dashboard: TrafficDashboard) {
         val missing = dashboard.ranking.map { it.product }.filter { requestedLogos.add(it.id) }
         if (missing.isEmpty()) return
@@ -121,6 +124,7 @@ class DashboardViewModel(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    requestedLogos.remove(product.id)
                     null
                 }
                 if (logo != null) mutableState.update { it.copy(logos = it.logos + (product.id to logo)) }

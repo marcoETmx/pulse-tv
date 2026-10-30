@@ -41,23 +41,28 @@ class ProductLogoSource(
     private val download: suspend (String) -> ByteArray?,
     private val cache: LogoCache,
 ) {
+    /**
+     * The logo, or null when the product has none. Throws the first failure when a lookup failed and
+     * nothing was found, because then "no logo" is not known yet and the caller should ask again later.
+     */
     suspend fun logo(product: Product): ByteArray? = withContext(Dispatchers.IO) {
         cache.read(product.id)?.let { return@withContext it.bytes }
 
-        var failed = false
+        var failure: Exception? = null
         suspend fun <T : Any> attempt(lookup: suspend () -> T?): T? = try {
             lookup()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failed = true
+            if (failure == null) failure = e
             null
         }
 
         val logo = attempt { dataFastLogoUrl(product) }?.let { url -> attempt { download(url) } }
             ?: attempt { siteIconUrl(product.domain) }?.let { url -> attempt { download(url) } }
         // "No logo" is remembered only when every lookup really answered; failures retry next time.
-        if (logo != null || !failed) cache.write(product.id, logo)
+        if (logo == null) failure?.let { throw it }
+        cache.write(product.id, logo)
         logo
     }
 }

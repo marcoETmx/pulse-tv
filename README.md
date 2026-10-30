@@ -111,6 +111,12 @@ axis on the right that shares the visitor gridlines. The two axes are scaled ind
 compare each measure with itself over time, not the height of a bar with the line. The chart
 cursor shows both values for each hour, day or week.
 
+## Logos
+
+Each product shows the logo set in DataFast, else the icon its website declares, else its initial.
+Logos are kept on the TV for a week, and so is knowing that a product has none. A logo that could not
+be fetched because the site or the network failed is tried again with the next refresh.
+
 ## Launcher artwork
 
 Fire TV draws sideloaded apps' icons in a square centered on a gray 16:9 tile and squeezes
