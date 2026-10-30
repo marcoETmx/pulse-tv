@@ -13,7 +13,7 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
-  # Gradle plugins and libraries, from gradle/libs.versions.toml.
+  # Gradle plugins and libraries from gradle/libs.versions.toml, and the Gradle wrapper.
   - package-ecosystem: gradle
     directory: /
     schedule:
