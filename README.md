@@ -189,3 +189,9 @@ ever sent to `datafa.st`.
 
 Space Grotesk font by the Space Grotesk Project Authors, licensed under the SIL Open Font License 1.1
 (`docs/licenses/SpaceGrotesk-OFL.txt`).
+
+## License
+
+Copyright 2026 Marco Elizalde
+
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE).
