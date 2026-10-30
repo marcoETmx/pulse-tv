@@ -14,19 +14,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.marcoelizalde.pulse.traffic.dashboard.components.AuroraBackground
 import com.marcoelizalde.pulse.traffic.dashboard.components.DashboardHeader
+import com.marcoelizalde.pulse.traffic.dashboard.components.DashboardMenu
 import com.marcoelizalde.pulse.traffic.dashboard.components.ErrorPanel
 import com.marcoelizalde.pulse.traffic.dashboard.components.LoadingPanel
 import com.marcoelizalde.pulse.traffic.dashboard.components.ProductRanking
 import com.marcoelizalde.pulse.traffic.dashboard.components.VisitorsCard
+import com.marcoelizalde.pulse.traffic.dashboard.components.isMenuPress
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
 
@@ -38,29 +43,66 @@ fun DashboardRoute(viewModel: DashboardViewModel) {
         viewModel.resume()
         onStopOrDispose { viewModel.pause() }
     }
-    DashboardScreen(state, onSelectPeriod = viewModel::select, onRetry = viewModel::refreshNow)
+    DashboardScreen(
+        state,
+        onSelectPeriod = viewModel::select,
+        onSelectRefreshInterval = viewModel::setRefreshInterval,
+        onRefreshNow = viewModel::refreshNow,
+    )
 }
 
 @Composable
-fun DashboardScreen(state: DashboardUiState, onSelectPeriod: (Period) -> Unit, onRetry: () -> Unit) {
+fun DashboardScreen(
+    state: DashboardUiState,
+    onSelectPeriod: (Period) -> Unit,
+    onSelectRefreshInterval: (RefreshInterval) -> Unit,
+    onRefreshNow: () -> Unit,
+) {
     val selectedPeriodFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { selectedPeriodFocus.requestFocus() } }
+    var menuOpen by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize()) {
+    // The remote's ☰ opens the menu from wherever the focus is.
+    Box(Modifier.fillMaxSize().onPreviewKeyEvent { event -> event.isMenuPress().also { if (it) menuOpen = true } }) {
         AuroraBackground()
         // 5% horizontal and vertical overscan-safe margins for 960x540dp TV screens.
         Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp)) {
-            DashboardHeader(state, onSelect = onSelectPeriod, selectedPeriodFocus = selectedPeriodFocus)
+            DashboardHeader(
+                state,
+                onSelect = onSelectPeriod,
+                selectedPeriodFocus = selectedPeriodFocus,
+                onOpenMenu = { menuOpen = true },
+            )
             Spacer(Modifier.height(20.dp))
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val dashboard = state.dashboard
                 when {
                     dashboard != null -> DashboardContent(dashboard, state.logos, dimmed = state.isShowingStalePeriod)
-                    state.error != null -> ErrorPanel(state.error, onRetry)
+                    state.error != null -> ErrorPanel(state.error, onRefreshNow)
                     else -> LoadingPanel()
                 }
             }
         }
+    }
+
+    if (menuOpen) {
+        // Every choice closes the menu, and focus goes back to where it was.
+        DashboardMenu(
+            state,
+            onSelectPeriod = { period ->
+                onSelectPeriod(period)
+                menuOpen = false
+            },
+            onSelectRefreshInterval = { interval ->
+                onSelectRefreshInterval(interval)
+                menuOpen = false
+            },
+            onRefreshNow = {
+                onRefreshNow()
+                menuOpen = false
+            },
+            onDismiss = { menuOpen = false },
+        )
     }
 }
 

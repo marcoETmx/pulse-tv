@@ -42,6 +42,7 @@ fun DashboardHeader(
     state: DashboardUiState,
     onSelect: (Period) -> Unit,
     selectedPeriodFocus: FocusRequester,
+    onOpenMenu: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -67,6 +68,8 @@ fun DashboardHeader(
         PeriodSelector(state.selectedPeriod, onSelect, selectedPeriodFocus)
         Spacer(Modifier.width(32.dp))
         Clock()
+        Spacer(Modifier.width(16.dp))
+        MenuButton(onClick = onOpenMenu)
     }
 }
 

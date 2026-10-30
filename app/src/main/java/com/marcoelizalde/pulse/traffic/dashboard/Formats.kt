@@ -75,6 +75,8 @@ object Formats {
         Period.THIS_YEAR -> "This year"
     }
 
+    fun refreshInterval(interval: RefreshInterval): String = "Every ${interval.minutes} min"
+
     fun range(window: ReportWindow): String = when {
         window.start == window.end -> weekdayMonthDay.format(window.start)
         window.start.year == window.end.year -> "${monthDay.format(window.start)} – ${monthDay.format(window.end)}"

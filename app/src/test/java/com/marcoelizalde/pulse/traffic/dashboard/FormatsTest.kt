@@ -88,6 +88,14 @@ class FormatsTest {
     }
 
     @Test
+    fun `refresh intervals have short menu labels`() {
+        assertEquals(
+            listOf("Every 5 min", "Every 10 min", "Every 15 min"),
+            RefreshInterval.entries.map(Formats::refreshInterval),
+        )
+    }
+
+    @Test
     fun `range reads naturally for one day, a few days and across years`() {
         fun window(start: LocalDate, end: LocalDate) = ReportWindow(start, end, zone, Granularity.DAY)
 

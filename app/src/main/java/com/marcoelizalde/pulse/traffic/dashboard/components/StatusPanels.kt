@@ -116,4 +116,4 @@ internal fun statusLine(state: DashboardUiState): String {
     }
 }
 
-private val UpdatedAt = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())
+internal val UpdatedAt: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())
