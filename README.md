@@ -8,7 +8,16 @@ domain when a website has no name.
 
 Built for the Fire TV Stick (Fire OS 7, Android 9 / API 28) with Kotlin and Compose for TV.
 
+![Pulse TV dashboard running on demo data](docs/screenshot.png)
+
 ## Setup
+
+You build Pulse yourself: there are no prebuilt APKs, because the token is compiled into the app
+(see the [Security note](#security-note)). You need:
+
+- A JDK. Android Studio's bundled JDK works, and CI builds with Temurin 25.
+- The Android SDK, from Android Studio or the command-line tools. Point Gradle at it with
+  `ANDROID_HOME` or with `sdk.dir` in `local.properties`.
 
 ### 1. Create a read-only DataFast token
 
@@ -39,10 +48,12 @@ Without a token the app runs on clearly labelled **demo data**, which is handy f
 Enable **ADB debugging** on the Fire TV (Settings → My Fire TV → Developer options), then:
 
 ```sh
-export JAVA_HOME="$HOME/.local/share/android-studio/jbr"   # Android Studio's bundled JDK
 adb connect <fire-tv-ip>:5555
 ./gradlew installRelease
 ```
+
+If Gradle can't find a JDK, set `JAVA_HOME` to one, such as the `jbr` folder inside Android Studio's
+install directory.
 
 The release build is minified with R8 (about 1.6 MB, cold start around 2.6 s on a Fire TV Stick Lite)
 and signed with the local debug key, because it is meant for sideloading only. Open **Pulse** from
@@ -176,6 +187,9 @@ ui/theme/      Colors, Space Grotesk typography, theme
 ./gradlew testDebugUnitTest
 ```
 
+CI runs them and builds the release APK on every push to `main` and every pull request, without a
+token.
+
 ## Security note
 
 The token is compiled into the APK, so anyone with the APK file can extract it. Keep the APK private,
@@ -189,6 +203,11 @@ ever sent to `datafa.st`.
 
 Space Grotesk font by the Space Grotesk Project Authors, licensed under the SIL Open Font License 1.1
 (`docs/licenses/SpaceGrotesk-OFL.txt`).
+
+## Contributing
+
+Issues and pull requests are welcome; see [`CONTRIBUTING.md`](CONTRIBUTING.md). Report security
+problems privately as described in [`SECURITY.md`](SECURITY.md).
 
 ## License
 
