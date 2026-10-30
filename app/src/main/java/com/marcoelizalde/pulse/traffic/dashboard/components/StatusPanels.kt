@@ -105,22 +105,26 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
  * Demo data's update time means nothing, so the demo badge takes its place; the header has no room
  * for both. Loading and errors still show as text.
  */
-internal fun showsDemoBadge(state: DashboardUiState): Boolean =
-    state.isDemo && state.dashboard != null && !state.isLoading && state.error == null
+internal fun showsDemoBadge(state: DashboardUiState): Boolean = state.isDemo && isUpToDate(state)
 
 internal fun statusLine(state: DashboardUiState): String {
     val dashboard = state.dashboard
     return when {
         dashboard == null && state.error != null -> "Couldn't load data"
         dashboard == null -> "Connecting to DataFast…"
+        isUpToDate(state) -> "Updated ${UpdatedAt.format(dashboard.updatedAt)}"
         state.isLoading && state.isShowingStalePeriod -> "Loading ${Formats.period(state.selectedPeriod).lowercase()}…"
         state.error != null && state.isShowingStalePeriod ->
             "Couldn't load ${Formats.period(state.selectedPeriod).lowercase()}: ${state.error} · " +
                 "showing ${Formats.period(dashboard.period).lowercase()} from ${UpdatedAt.format(dashboard.updatedAt)}"
         state.error != null -> "Couldn't refresh: ${state.error} · showing data from ${UpdatedAt.format(dashboard.updatedAt)}"
-        state.isLoading -> "Refreshing…"
-        else -> "Updated ${UpdatedAt.format(dashboard.updatedAt)}"
+        // Neither up to date nor failed, so the period on screen is reloading.
+        else -> "Refreshing…"
     }
 }
+
+/** Data on screen with nothing loading or failing: all there is to say is when it was updated. */
+private fun isUpToDate(state: DashboardUiState): Boolean =
+    state.dashboard != null && !state.isLoading && state.error == null
 
 internal val UpdatedAt: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())
