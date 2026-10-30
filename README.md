@@ -97,9 +97,12 @@ within 1% of a fresh comparison), and the website list for an hour. A period you
 refresh interval is shown again without calling DataFast. No interval is shorter than 5 minutes, and
 refreshing by hand is ignored while a load is running, so presses never pile up requests.
 
-If DataFast still answers `429` (for example, because something else uses the same token), the app
-waits until DataFast's reset time before retrying, keeping the last data on screen. The previous
-period is asked for last, so if the limit runs out there, the ranking just shows no arrows.
+The budget belongs to the token: every device running Pulse with the same token shares DataFast's 60
+requests per minute, and Pulse can't see what the others spend. So if DataFast still answers `429`,
+Pulse sends nothing more until DataFast's reset (the next minute, never more than 2 minutes away)
+and then retries on its own, keeping the last data on screen. The previous period is asked for last,
+so if the limit runs out there, the ranking just shows no arrows. (DataFast's docs give the reset in
+seconds, but it arrives in milliseconds; Pulse reads both.)
 
 ## Periods
 

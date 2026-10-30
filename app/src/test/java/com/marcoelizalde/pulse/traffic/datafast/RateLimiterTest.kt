@@ -16,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class RateLimiterTest {
     private val shop = Product("665f0b3c4d2e1a0012345678", "Shop", "shop.example")
@@ -30,6 +31,23 @@ class RateLimiterTest {
                 sorted[i] - sorted[i - max] >= perMillis,
             )
         }
+    }
+
+    @Test
+    fun `a hold keeps every waiting caller back until it ends, and a shorter one never cuts it short`() = runTest {
+        val limiter = RateLimiter(maxRequests = 1, per = 1.minutes, timeSource = testScheduler.timeSource)
+        val sentAt = mutableListOf<Long>()
+        limiter.acquire()
+        sentAt += testScheduler.currentTime
+        // Two callers queue behind the window; then the provider says its own limit ran out.
+        val callers = (1..2).map { launch { limiter.acquire(); sentAt += testScheduler.currentTime } }
+        advanceTimeBy(10.seconds)
+        limiter.holdFor(80.seconds)
+        limiter.holdFor(5.seconds)
+        advanceUntilIdle()
+
+        assertTrue(callers.all { it.isCompleted })
+        assertEquals(listOf(0L, 90_000L, 150_000L), sentAt)
     }
 
     @Test

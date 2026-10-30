@@ -19,10 +19,31 @@ class RateLimiter(
     private val mutex = Mutex()
     private val sent = ArrayDeque<ComparableTimeMark>()
 
-    /** Suspends until one more request fits in the window, then counts it as sent. */
+    /** Set from outside the lock, since the request that learns about a hold must not queue behind waiters. */
+    @Volatile
+    private var heldUntil: ComparableTimeMark? = null
+
+    /**
+     * Sends nothing more for [duration], for when the provider says its own limit ran out: something else
+     * may be spending the same budget, which this window cannot see.
+     */
+    fun holdFor(duration: Duration) {
+        val until = timeSource.markNow() + duration
+        synchronized(this) {
+            if (heldUntil.let { it == null || until > it }) heldUntil = until
+        }
+    }
+
+    /** Suspends until one more request fits in the window and no hold is on, then counts it as sent. */
     suspend fun acquire() = mutex.withLock {
         // The lock is held while waiting, so waiters go out first come, first served.
-        while (sent.size >= maxRequests) {
+        while (true) {
+            val held = heldUntil?.let { -it.elapsedNow() }
+            if (held != null && held.isPositive()) {
+                delay(held)
+                continue
+            }
+            if (sent.size < maxRequests) break
             val wait = per - sent.first().elapsedNow()
             if (wait.isPositive()) delay(wait) else sent.removeFirst()
         }

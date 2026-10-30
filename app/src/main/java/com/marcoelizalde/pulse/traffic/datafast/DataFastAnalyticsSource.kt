@@ -117,7 +117,13 @@ class DataFastAnalyticsSource(
         query: List<Pair<String, String>> = emptyList(),
     ): T {
         val response = send(url(path, query))
-        if (response.status !in 200..299) throw errorFor(response)
+        if (response.status !in 200..299) {
+            val error = errorFor(response)
+            // DataFast's own count ran out, and it can include other devices using the token: nothing more
+            // goes out until its reset, so queued requests wait instead of hitting the limit too.
+            if (response.status == 429) error.retryAfter?.let(rateLimiter::holdFor)
+            throw error
+        }
         val envelope = try {
             json.decodeFromString<T>(response.body)
         } catch (e: SerializationException) {
@@ -158,8 +164,9 @@ class DataFastAnalyticsSource(
         403 -> AnalyticsException("The DataFast token needs the analytics:read and websites:read permissions (403).")
         429 -> {
             val limit = runCatching { json.decodeFromString<RateLimitDto>(response.body) }.getOrNull()
+            // Capped, so a reset that is misread or far off never stops refreshing for good.
             val retryAfter = limit?.reset?.let { reset ->
-                Duration.between(clock.instant(), Instant.ofEpochSecond(reset)).toKotlinDuration().coerceAtLeast(ZERO)
+                Duration.between(clock.instant(), resetInstant(reset)).toKotlinDuration().coerceIn(ZERO, MAX_RATE_LIMIT_WAIT)
             }
             AnalyticsException("DataFast rate limit reached (${limit?.limit ?: 60} requests per minute).", retryAfter = retryAfter)
         }
@@ -180,6 +187,9 @@ class DataFastAnalyticsSource(
         const val UNEXPECTED_RESPONSE = "DataFast sent an unexpected response."
         val PRODUCTS_TTL: Duration = Duration.ofHours(1)
         val RETRY_DELAYS = listOf(1.seconds, 3.seconds)
+
+        /** DataFast's limits reset every minute, so a longer wait means the reset was misread. */
+        val MAX_RATE_LIMIT_WAIT = 2.minutes
     }
 }
 
@@ -199,6 +209,10 @@ private fun parseBucketStart(timestamp: String): LocalDateTime =
         .recoverCatching { LocalDateTime.parse(timestamp) }
         .recoverCatching { LocalDate.parse(timestamp).atStartOfDay() }
         .getOrElse { throw AnalyticsException("DataFast sent an unexpected response.", it) }
+
+/** A rate limit's reset, read as milliseconds when it is too large to be seconds (past the year 5000). */
+private fun resetInstant(reset: Long): Instant =
+    if (reset > 100_000_000_000L) Instant.ofEpochMilli(reset) else Instant.ofEpochSecond(reset)
 
 /** DataFast reads a timestamp without an offset as UTC, whatever the timezone parameter says. */
 private fun utcInstant(time: LocalDateTime, zone: ZoneId): String =
@@ -233,6 +247,9 @@ private data class ErrorEnvelope(val error: ErrorDto? = null)
 @Serializable
 private data class ErrorDto(val message: String? = null)
 
-/** DataFast's 429 body: `{"error":"Too many requests","limit":60,"remaining":0,"reset":<epoch seconds>}`. */
+/**
+ * DataFast's 429 body: `{"error":"Too many requests","limit":60,"remaining":0,"reset":1793335260000}`. The docs
+ * say `reset` is in epoch seconds, but DataFast sends milliseconds (seen 2026-10-30).
+ */
 @Serializable
 private data class RateLimitDto(val limit: Int? = null, val reset: Long? = null)

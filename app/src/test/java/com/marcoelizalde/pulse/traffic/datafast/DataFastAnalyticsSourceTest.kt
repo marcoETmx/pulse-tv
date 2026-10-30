@@ -337,6 +337,67 @@ class DataFastAnalyticsSourceTest {
     }
 
     @Test
+    fun `a rate limit with its reset in milliseconds says when DataFast accepts requests again`() = runTest {
+        val now = Instant.parse("2026-10-23T18:00:00Z")
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(
+                429,
+                """{"error":"Too many requests","limit":60,"remaining":0,"reset":${now.toEpochMilli() + 42_000}}""",
+            ),
+        )
+
+        val error = runCatching {
+            DataFastAnalyticsSource("dft_secret", transport, clock = MutableClock(now)).products()
+        }.exceptionOrNull() as AnalyticsException
+
+        assertEquals(42.seconds, error.retryAfter)
+    }
+
+    @Test
+    fun `a rate limit never pauses refreshing for more than two minutes`() = runTest {
+        val now = Instant.parse("2026-10-23T18:00:00Z")
+        val transport = FakeTransport(
+            "/admin/websites" to HttpResponse(
+                429,
+                """{"error":"Too many requests","limit":60,"remaining":0,"reset":${now.epochSecond + 86_400}}""",
+            ),
+        )
+
+        val error = runCatching {
+            DataFastAnalyticsSource("dft_secret", transport, clock = MutableClock(now)).products()
+        }.exceptionOrNull() as AnalyticsException
+
+        assertEquals(2.minutes, error.retryAfter)
+    }
+
+    @Test
+    fun `after a rate limit the next requests wait for DataFast's reset instead of failing again`() = runTest {
+        val sentAt = mutableListOf<Long>()
+        val now = Instant.parse("2026-10-23T18:00:00Z")
+        val outcomes = ArrayDeque(
+            listOf(
+                HttpResponse(429, """{"error":"Too many requests","limit":60,"remaining":0,"reset":${now.toEpochMilli() + 30_000}}"""),
+                HttpResponse(200, """{"status":"success","data":[{"logo":null}]}"""),
+            ),
+        )
+        val transport = HttpTransport { _, _ ->
+            sentAt += testScheduler.currentTime
+            outcomes.removeFirst()
+        }
+        val source = DataFastAnalyticsSource(
+            "dft_secret",
+            transport,
+            clock = MutableClock(now),
+            rateLimiter = RateLimiter(maxRequests = 55, per = 1.minutes, timeSource = testScheduler.timeSource),
+        )
+
+        assertTrue(runCatching { source.logoUrl(shop) }.exceptionOrNull() is AnalyticsException)
+        source.logoUrl(shop)
+
+        assertEquals(listOf(0L, 30_000L), sentAt)
+    }
+
+    @Test
     fun `a network failure is tried again after a short wait`() = runTest {
         val sentAt = mutableListOf<Long>()
         val outcomes = ArrayDeque(listOf<HttpResponse?>(null, null, HttpResponse(200, """{"status":"success","data":[{"logo":"https://shop.example/logo.png"}]}""")))
