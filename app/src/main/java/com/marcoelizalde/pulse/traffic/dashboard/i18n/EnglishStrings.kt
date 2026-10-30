@@ -3,8 +3,20 @@ package com.marcoelizalde.pulse.traffic.dashboard.i18n
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
+import java.util.Locale
 
 object EnglishStrings : PulseStrings {
+    override val locale: Locale = Locale.US
+    override val groupingSeparator = ','
+    override val decimalSeparator = '.'
+    override val thousandsSuffix = "K"
+    override val millionsSuffix = "M"
+    override val percentSuffix = "%"
+    override val currencyAfterAmount = false
+    override val monthDayPattern = "MMM d"
+    override val monthDayYearPattern = "MMM d, yyyy"
+    override val weekdayMonthDayPattern = "EEE, MMM d"
+
     override fun period(period: Period): String = when (period) {
         Period.TODAY -> "Today"
         Period.LAST_7_DAYS -> "7 days"

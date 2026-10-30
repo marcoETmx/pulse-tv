@@ -31,9 +31,6 @@ import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun LoadingPanel(modifier: Modifier = Modifier) {
@@ -115,11 +112,11 @@ internal fun statusLine(state: DashboardUiState, formats: Formats): String {
     return when {
         dashboard == null && state.error != null -> strings.noData
         dashboard == null -> strings.connecting
-        isUpToDate(state) -> strings.updated(UpdatedAt.format(dashboard.updatedAt))
+        isUpToDate(state) -> strings.updated(formats.time(dashboard.updatedAt))
         state.isLoading && state.isShowingStalePeriod -> strings.loadingPeriod(state.selectedPeriod)
         state.error != null && state.isShowingStalePeriod ->
-            strings.periodFailed(state.selectedPeriod, strings.problem(state.error), dashboard.period, UpdatedAt.format(dashboard.updatedAt))
-        state.error != null -> strings.refreshFailed(strings.problem(state.error), UpdatedAt.format(dashboard.updatedAt))
+            strings.periodFailed(state.selectedPeriod, strings.problem(state.error), dashboard.period, formats.time(dashboard.updatedAt))
+        state.error != null -> strings.refreshFailed(strings.problem(state.error), formats.time(dashboard.updatedAt))
         // Neither up to date nor failed, so the period on screen is reloading.
         else -> strings.refreshing
     }
@@ -129,4 +126,3 @@ internal fun statusLine(state: DashboardUiState, formats: Formats): String {
 private fun isUpToDate(state: DashboardUiState): Boolean =
     state.dashboard != null && !state.isLoading && state.error == null
 
-internal val UpdatedAt: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())

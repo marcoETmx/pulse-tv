@@ -255,11 +255,11 @@ private fun CheckGlyph(modifier: Modifier = Modifier) {
 internal fun menuStatus(state: DashboardUiState, formats: Formats): String {
     val strings = formats.strings
     val dashboard = state.dashboard ?: return strings.notLoadedYet
-    val updated = strings.updated(UpdatedAt.format(dashboard.updatedAt))
+    val updated = strings.updated(formats.time(dashboard.updatedAt))
     val next = when {
         state.isLoading -> strings.statusRefreshing
         state.error != null -> strings.statusRetrying
-        else -> strings.statusNext(UpdatedAt.format(dashboard.updatedAt + state.refreshInterval.duration.toJavaDuration()))
+        else -> strings.statusNext(formats.time(dashboard.updatedAt + state.refreshInterval.duration.toJavaDuration()))
     }
     return "$updated · $next"
 }

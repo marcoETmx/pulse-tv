@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
 import com.marcoelizalde.pulse.traffic.dashboard.i18n.EnglishStrings
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.PulseStrings
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import org.junit.Assert.assertEquals
@@ -8,6 +9,7 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Locale
 
 class FormatsTest {
     private val formats = Formats(EnglishStrings)
@@ -113,5 +115,64 @@ class FormatsTest {
         assertEquals("1 tracked", formats.rankingRange(firstVisible = 0, visibleRows = 6, total = 1))
         assertEquals("1–6 of 10", formats.rankingRange(firstVisible = 0, visibleRows = 6, total = 10))
         assertEquals("5–10 of 10", formats.rankingRange(firstVisible = 4, visibleRows = 6, total = 10))
+    }
+
+    /** English words with German conventions, to show that numbers and dates follow the language, not US rules. */
+    private val germanStyle = Formats(
+        object : PulseStrings by EnglishStrings {
+            override val locale: Locale = Locale.GERMAN
+            override val groupingSeparator = '.'
+            override val decimalSeparator = ','
+            override val thousandsSuffix = " Tsd."
+            override val millionsSuffix = " Mio."
+            override val percentSuffix = " %"
+            override val currencyAfterAmount = true
+            override val monthDayPattern = "d. MMM"
+            override val monthDayYearPattern = "d. MMM yyyy"
+            override val weekdayMonthDayPattern = "EEE, d. MMM"
+        },
+    )
+
+    @Test
+    fun `numbers use the language's separators and abbreviations`() {
+        assertEquals(listOf("999", "12.450", "1.234.567"), listOf(999L, 12_450L, 1_234_567L).map(germanStyle::grouped))
+        assertEquals(listOf("1 Tsd.", "1,3 Tsd.", "4,2 Mio."), listOf(1_000L, 1_284L, 4_200_000L).map(germanStyle::compact))
+        assertEquals(listOf("0 %", "<1 %", "42 %"), listOf(0.0, 0.004, 0.4231).map(germanStyle::share))
+    }
+
+    @Test
+    fun `money puts the currency where the language does`() {
+        assertEquals(
+            listOf("139\u00A0$", "1.234,50\u00A0$", "-5\u00A0$", "120\u00A0MXN", "1,5 Tsd.\u00A0$"),
+            listOf(
+                germanStyle.money(13_900, "$"),
+                germanStyle.money(123_450, "$"),
+                germanStyle.money(-500, "$"),
+                germanStyle.money(12_000, "MXN"),
+                germanStyle.moneyCompact(1_500, "$"),
+            ),
+        )
+    }
+
+    @Test
+    fun `dates use the language's names and order`() {
+        fun window(start: LocalDate, end: LocalDate) = ReportWindow(start, end, zone, Granularity.DAY)
+        val start = LocalDateTime.of(2026, 10, 21, 14, 0)
+
+        assertEquals("Fr., 23. Okt.", germanStyle.range(window(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 10, 23))))
+        assertEquals("17. Okt. – 23. Okt.", germanStyle.range(window(LocalDate.of(2026, 10, 17), LocalDate.of(2026, 10, 23))))
+        assertEquals("25. Dez. 2025 – 23. Jan. 2026", germanStyle.range(window(LocalDate.of(2025, 12, 25), LocalDate.of(2026, 1, 23))))
+        assertEquals(listOf("14:00", "21. Okt.", "21. Okt."), Granularity.entries.map { germanStyle.bucketTick(start, it) })
+        assertEquals("Mi., 21. Okt.", germanStyle.bucketDetail(start, Granularity.DAY))
+        assertEquals("Mi., 21. Okt.", germanStyle.clockDate(start))
+    }
+
+    @Test
+    fun `the clock and update times are hours and minutes in the TV's timezone`() {
+        val formats = Formats(EnglishStrings, zone)
+
+        assertEquals("14:05", formats.clockTime(LocalDateTime.of(2026, 10, 21, 14, 5)))
+        assertEquals("Wed, Oct 21", formats.clockDate(LocalDateTime.of(2026, 10, 21, 14, 5)))
+        assertEquals("16:14", formats.time(java.time.Instant.parse("2026-10-23T22:14:00Z")))
     }
 }

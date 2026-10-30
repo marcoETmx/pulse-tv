@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.dashboard.i18n
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
+import java.util.Locale
 
 /**
  * Every text the dashboard shows, in one language. Each language implements all of it, so a missing
@@ -10,6 +11,18 @@ import com.marcoelizalde.pulse.traffic.domain.Period
  * formatted; a language only decides the words around them and their order.
  */
 interface PulseStrings {
+    // How numbers and dates are written. Month and weekday names come from [locale].
+    val locale: Locale
+    val groupingSeparator: Char
+    val decimalSeparator: Char
+    val thousandsSuffix: String
+    val millionsSuffix: String
+    val percentSuffix: String
+    val currencyAfterAmount: Boolean
+    val monthDayPattern: String
+    val monthDayYearPattern: String
+    val weekdayMonthDayPattern: String
+
     // Header and status line
     fun period(period: Period): String
     val connecting: String

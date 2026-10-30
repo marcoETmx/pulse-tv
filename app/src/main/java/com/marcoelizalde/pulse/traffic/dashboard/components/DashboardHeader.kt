@@ -34,8 +34,6 @@ import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun DashboardHeader(
@@ -124,10 +122,8 @@ private fun Clock() {
         }
     }
     Column(horizontalAlignment = Alignment.End) {
-        Text(ClockTime.format(now), style = PulseType.clock)
-        Text(ClockDate.format(now), style = PulseType.caption, color = PulseColors.TextMuted)
+        val formats = LocalFormats.current
+        Text(formats.clockTime(now), style = PulseType.clock)
+        Text(formats.clockDate(now), style = PulseType.caption, color = PulseColors.TextMuted)
     }
 }
-
-private val ClockTime = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
-private val ClockDate = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)
