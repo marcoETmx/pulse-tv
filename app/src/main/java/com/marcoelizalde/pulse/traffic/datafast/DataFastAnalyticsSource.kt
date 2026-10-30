@@ -9,6 +9,7 @@ import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -26,6 +27,7 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toKotlinDuration
 
 /**
@@ -112,12 +114,7 @@ class DataFastAnalyticsSource(
         path: String,
         query: List<Pair<String, String>> = emptyList(),
     ): T {
-        rateLimiter.acquire()
-        val response = try {
-            transport.get(url(path, query), mapOf("Authorization" to "Bearer $token", "Accept" to "application/json"))
-        } catch (e: IOException) {
-            throw AnalyticsException("Can't reach DataFast. Check the TV's internet connection.", e)
-        }
+        val response = send(url(path, query))
         if (response.status !in 200..299) throw errorFor(response)
         val envelope = try {
             json.decodeFromString<T>(response.body)
@@ -128,6 +125,30 @@ class DataFastAnalyticsSource(
         }
         if (envelope.status == "error") throw errorFor(response)
         return envelope
+    }
+
+    /**
+     * One GET through the rate limiter. Network failures and 5xx responses are usually passing hiccups, so
+     * they are tried again after each of [RETRY_DELAYS]; every try spends rate-limit budget.
+     */
+    private suspend fun send(url: String): HttpResponse {
+        val headers = mapOf("Authorization" to "Bearer $token", "Accept" to "application/json")
+        for (wait in RETRY_DELAYS) {
+            rateLimiter.acquire()
+            try {
+                val response = transport.get(url, headers)
+                if (response.status !in 500..599) return response
+            } catch (e: IOException) {
+                // Tried again after the wait.
+            }
+            delay(wait)
+        }
+        rateLimiter.acquire()
+        return try {
+            transport.get(url, headers)
+        } catch (e: IOException) {
+            throw AnalyticsException("Can't reach DataFast. Check the TV's internet connection.", e)
+        }
     }
 
     private fun errorFor(response: HttpResponse): AnalyticsException = when (response.status) {
@@ -156,6 +177,7 @@ class DataFastAnalyticsSource(
     private companion object {
         const val UNEXPECTED_RESPONSE = "DataFast sent an unexpected response."
         val PRODUCTS_TTL: Duration = Duration.ofHours(1)
+        val RETRY_DELAYS = listOf(1.seconds, 3.seconds)
     }
 }
 

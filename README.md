@@ -63,6 +63,11 @@ and signed with the local debug key, because it is meant for sideloading only. O
 The dashboard refreshes every 5 minutes while it is on screen, pauses when you leave the app,
 and keeps the TV awake while it is open.
 
+A request that fails because of the network or a DataFast server error (5xx) is tried twice more,
+after 1 and 3 seconds, before the dashboard reports it. A dashboard is shown only when every website
+loaded, because a total with a website missing would be wrong; until then the last one stays on
+screen.
+
 ### DataFast rate limit
 
 DataFast allows 60 API requests per minute per token. Pulse sends at most 55 in any minute, leaving

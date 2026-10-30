@@ -335,6 +335,87 @@ class DataFastAnalyticsSourceTest {
     }
 
     @Test
+    fun `a network failure is tried again after a short wait`() = runTest {
+        val sentAt = mutableListOf<Long>()
+        val outcomes = ArrayDeque(listOf<HttpResponse?>(null, null, HttpResponse(200, """{"status":"success","data":[{"logo":"https://shop.example/logo.png"}]}""")))
+        val transport = HttpTransport { _, _ ->
+            sentAt += testScheduler.currentTime
+            outcomes.removeFirst() ?: throw IOException("timeout")
+        }
+
+        val logo = DataFastAnalyticsSource("dft_secret", transport).logoUrl(shop)
+
+        assertEquals("https://shop.example/logo.png", logo)
+        assertEquals(listOf(0L, 1_000L, 4_000L), sentAt)
+    }
+
+    @Test
+    fun `a server error is tried again`() = runTest {
+        val outcomes = ArrayDeque(listOf(HttpResponse(503, "Service Unavailable", "text/html"), HttpResponse(200, """{"status":"success","data":[{"logo":null}]}""")))
+        var calls = 0
+        val transport = HttpTransport { _, _ -> calls++; outcomes.removeFirst() }
+
+        val logo = DataFastAnalyticsSource("dft_secret", transport).logoUrl(shop)
+
+        assertEquals(null, logo)
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun `a server error that persists is reported after three tries`() = runTest {
+        var calls = 0
+        val transport = HttpTransport { _, _ ->
+            calls++
+            HttpResponse(502, """{"status":"error","error":{"code":502,"message":"Bad gateway"}}""")
+        }
+
+        val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
+
+        assertEquals("DataFast error 502: Bad gateway", error?.message)
+        assertEquals(3, calls)
+    }
+
+    @Test
+    fun `client errors, rate limits and error envelopes are not tried again`() = runTest {
+        val responses = listOf(
+            HttpResponse(400, """{"status":"error","error":{"code":400,"message":"Invalid date range"}}"""),
+            HttpResponse(401, """{"status":"error"}"""),
+            HttpResponse(403, """{"status":"error"}"""),
+            HttpResponse(404, """{"status":"error"}"""),
+            HttpResponse(429, """{"error":"Too many requests","limit":60,"remaining":0,"reset":0}"""),
+            HttpResponse(200, """{"status":"error","error":{"message":"Website not found"}}"""),
+        )
+
+        val calls = responses.map { response ->
+            var calls = 0
+            val transport = HttpTransport { _, _ -> calls++; response }
+            runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }
+            calls
+        }
+
+        assertEquals(List(responses.size) { 1 }, calls)
+    }
+
+    @Test
+    fun `each retry spends rate-limit budget`() = runTest {
+        val sentAt = mutableListOf<Long>()
+        val outcomes = ArrayDeque(listOf<HttpResponse?>(null, null, HttpResponse(200, """{"status":"success","data":[{"logo":null}]}""")))
+        val transport = HttpTransport { _, _ ->
+            sentAt += testScheduler.currentTime
+            outcomes.removeFirst() ?: throw IOException("timeout")
+        }
+        val source = DataFastAnalyticsSource(
+            "dft_secret",
+            transport,
+            rateLimiter = RateLimiter(maxRequests = 2, per = 1.minutes, timeSource = testScheduler.timeSource),
+        )
+
+        source.logoUrl(shop)
+
+        assertEquals(listOf(0L, 1_000L, 60_000L), sentAt)
+    }
+
+    @Test
     fun `a network failure becomes an AnalyticsException`() = runTest {
         val transport = HttpTransport { _, _ -> throw IOException("timeout") }
 
