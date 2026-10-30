@@ -1,7 +1,9 @@
 package com.marcoelizalde.pulse.traffic.dashboard.components
 
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
+import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.EnglishStrings
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -13,6 +15,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class DashboardMenuTest {
+    private val formats = Formats(EnglishStrings)
     private val updatedAt = Instant.parse("2026-10-23T22:14:00Z")
     private val dashboard = TrafficDashboard(
         period = Period.TODAY,
@@ -36,7 +39,7 @@ class DashboardMenuTest {
             refreshInterval = RefreshInterval.TEN_MINUTES,
         )
 
-        assertEquals("Updated ${time(updatedAt)} · next ${time(updatedAt.plusSeconds(600))}", menuStatus(state))
+        assertEquals("Updated ${time(updatedAt)} · next ${time(updatedAt.plusSeconds(600))}", menuStatus(state, formats))
     }
 
     @Test
@@ -46,7 +49,7 @@ class DashboardMenuTest {
 
         assertEquals(
             listOf("Updated ${time(updatedAt)} · refreshing…", "Updated ${time(updatedAt)} · retrying soon", "Not loaded yet"),
-            listOf(menuStatus(loading), menuStatus(failed), menuStatus(DashboardUiState())),
+            listOf(menuStatus(loading, formats), menuStatus(failed, formats), menuStatus(DashboardUiState(), formats)),
         )
     }
 
@@ -54,7 +57,7 @@ class DashboardMenuTest {
     fun `the footer names the data source and the app version`() {
         assertEquals(
             listOf("DataFast · v0.1.1", "Demo data · v0.1.1"),
-            listOf(menuSource(isDemo = false, version = "0.1.1"), menuSource(isDemo = true, version = "0.1.1")),
+            listOf(menuSource(isDemo = false, version = "0.1.1", strings = EnglishStrings), menuSource(isDemo = true, version = "0.1.1", strings = EnglishStrings)),
         )
     }
 }

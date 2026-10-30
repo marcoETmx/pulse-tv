@@ -58,6 +58,8 @@ import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.BuildConfig
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.PulseStrings
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
 import com.marcoelizalde.pulse.ui.theme.PulseColors
@@ -112,6 +114,8 @@ private fun MenuPanel(
     onSelectRankingOrder: (RankingOrder) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
+    val formats = LocalFormats.current
+    val strings = formats.strings
     val currentInterval = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { currentInterval.requestFocus() } }
 
@@ -123,24 +127,24 @@ private fun MenuPanel(
             .background(PulseColors.Surface)
             .padding(start = 20.dp, end = 48.dp, top = 27.dp, bottom = 27.dp),
     ) {
-        Text("Menu", style = PulseType.title)
+        Text(strings.menu, style = PulseType.title)
         Spacer(Modifier.height(14.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            MenuSection("Auto refresh")
+            MenuSection(strings.autoRefresh)
             RefreshInterval.entries.forEach { interval ->
                 val current = interval == state.refreshInterval
                 MenuOption(
-                    Formats.refreshInterval(interval),
+                    strings.refreshInterval(interval.minutes),
                     checked = current,
                     onClick = { onSelectRefreshInterval(interval) },
                     modifier = if (current) Modifier.focusRequester(currentInterval) else Modifier,
                 )
             }
             Spacer(Modifier.height(14.dp))
-            MenuSection("Top products")
+            MenuSection(strings.topProducts)
             RankingOrder.entries.forEach { order ->
                 MenuOption(
-                    Formats.rankingOrder(order),
+                    strings.rankingOrder(order),
                     checked = order == state.rankingOrder,
                     onClick = { onSelectRankingOrder(order) },
                 )
@@ -149,15 +153,15 @@ private fun MenuPanel(
             Box(Modifier.fillMaxWidth().height(1.dp).background(PulseColors.Hairline))
             Spacer(Modifier.height(10.dp))
             MenuOption(
-                if (state.isLoading) "Refreshing…" else "Refresh now",
+                if (state.isLoading) strings.refreshing else strings.refreshNow,
                 checked = false,
                 onClick = onRefreshNow,
                 enabled = !state.isLoading,
             )
         }
         Spacer(Modifier.height(14.dp))
-        Text(menuSource(state.isDemo, BuildConfig.VERSION_NAME), style = PulseType.caption, color = PulseColors.TextMuted)
-        Text(menuStatus(state), style = PulseType.caption, color = PulseColors.TextMuted)
+        Text(menuSource(state.isDemo, BuildConfig.VERSION_NAME, strings), style = PulseType.caption, color = PulseColors.TextMuted)
+        Text(menuStatus(state, formats), style = PulseType.caption, color = PulseColors.TextMuted)
     }
 }
 
@@ -200,9 +204,10 @@ private fun MenuOption(
 /** The header's way into the menu, for remotes without a ☰ button (Google TV's has none). */
 @Composable
 fun MenuButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val label = LocalFormats.current.strings.menu
     Surface(
         onClick = onClick,
-        modifier = modifier.size(40.dp).semantics { contentDescription = "Menu" },
+        modifier = modifier.size(40.dp).semantics { contentDescription = label },
         shape = ClickableSurfaceDefaults.shape(CircleShape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
@@ -247,14 +252,17 @@ private fun CheckGlyph(modifier: Modifier = Modifier) {
 }
 
 /** The footer's second line: when the data on screen was loaded, and what happens next. */
-internal fun menuStatus(state: DashboardUiState): String {
-    val dashboard = state.dashboard ?: return "Not loaded yet"
-    val updated = "Updated ${UpdatedAt.format(dashboard.updatedAt)}"
-    return when {
-        state.isLoading -> "$updated · refreshing…"
-        state.error != null -> "$updated · retrying soon"
-        else -> "$updated · next ${UpdatedAt.format(dashboard.updatedAt + state.refreshInterval.duration.toJavaDuration())}"
+internal fun menuStatus(state: DashboardUiState, formats: Formats): String {
+    val strings = formats.strings
+    val dashboard = state.dashboard ?: return strings.notLoadedYet
+    val updated = strings.updated(UpdatedAt.format(dashboard.updatedAt))
+    val next = when {
+        state.isLoading -> strings.statusRefreshing
+        state.error != null -> strings.statusRetrying
+        else -> strings.statusNext(UpdatedAt.format(dashboard.updatedAt + state.refreshInterval.duration.toJavaDuration()))
     }
+    return "$updated · $next"
 }
 
-internal fun menuSource(isDemo: Boolean, version: String): String = "${if (isDemo) "Demo data" else "DataFast"} · v$version"
+internal fun menuSource(isDemo: Boolean, version: String, strings: PulseStrings): String =
+    "${if (isDemo) strings.demoData else "DataFast"} · v$version"

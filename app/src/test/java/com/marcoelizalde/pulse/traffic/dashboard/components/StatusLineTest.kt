@@ -1,6 +1,8 @@
 package com.marcoelizalde.pulse.traffic.dashboard.components
 
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
+import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.EnglishStrings
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -14,6 +16,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class StatusLineTest {
+    private val formats = Formats(EnglishStrings)
     private val updatedAt = Instant.parse("2026-10-23T22:14:00Z")
     private val dashboard = TrafficDashboard(
         period = Period.TODAY,
@@ -30,35 +33,35 @@ class StatusLineTest {
     fun `an up-to-date dashboard only says when it was updated`() {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = null)
 
-        assertEquals("Updated $time", statusLine(state))
+        assertEquals("Updated $time", statusLine(state, formats))
     }
 
     @Test
     fun `a failed refresh still says which data is on screen`() {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = "DataFast error 500")
 
-        assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state))
+        assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state, formats))
     }
 
     @Test
     fun `a period that failed to load names it and the period still on screen`() {
         val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = false, error = "DataFast error 500")
 
-        assertEquals("Couldn't load 30 days: DataFast error 500 · showing today from $time", statusLine(state))
+        assertEquals("Couldn't load 30 days: DataFast error 500 · showing today from $time", statusLine(state, formats))
     }
 
     @Test
     fun `a period still loading names it while another one is on screen`() {
         val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = true, error = null)
 
-        assertEquals("Loading 30 days…", statusLine(state))
+        assertEquals("Loading 30 days…", statusLine(state, formats))
     }
 
     @Test
     fun `a first load that failed says there is no data`() {
         val state = DashboardUiState(Period.TODAY, dashboard = null, isLoading = false, error = "DataFast error 500")
 
-        assertEquals("Couldn't load data", statusLine(state))
+        assertEquals("Couldn't load data", statusLine(state, formats))
     }
 
     @Test
@@ -73,7 +76,7 @@ class StatusLineTest {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = true, error = null, isDemo = true)
 
         assertFalse(showsDemoBadge(state))
-        assertEquals("Refreshing…", statusLine(state))
+        assertEquals("Refreshing…", statusLine(state, formats))
     }
 
     @Test
@@ -81,7 +84,7 @@ class StatusLineTest {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = "DataFast error 500", isDemo = true)
 
         assertFalse(showsDemoBadge(state))
-        assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state))
+        assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state, formats))
     }
 
     @Test
@@ -89,7 +92,7 @@ class StatusLineTest {
         val state = DashboardUiState(Period.TODAY, dashboard = null, isLoading = true, error = null, isDemo = true)
 
         assertFalse(showsDemoBadge(state))
-        assertEquals("Connecting to DataFast…", statusLine(state))
+        assertEquals("Connecting to DataFast…", statusLine(state, formats))
     }
 
     @Test
@@ -97,6 +100,6 @@ class StatusLineTest {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = null, isDemo = false)
 
         assertFalse(showsDemoBadge(state))
-        assertEquals("Updated $time", statusLine(state))
+        assertEquals("Updated $time", statusLine(state, formats))
     }
 }

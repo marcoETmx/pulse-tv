@@ -28,7 +28,7 @@ import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
-import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
@@ -53,7 +53,7 @@ fun DashboardHeader(
             state.dashboard?.window?.let { window ->
                 // Shrinks to fit (a range across years is long) rather than push the period selector.
                 BasicText(
-                    Formats.range(window),
+                    LocalFormats.current.range(window),
                     modifier = Modifier.fillMaxWidth(),
                     style = PulseType.clock.copy(
                         color = if (state.isShowingStalePeriod) PulseColors.TextMuted else PulseColors.TextPrimary,
@@ -106,7 +106,7 @@ fun PeriodSelector(selected: Period, onSelect: (Period) -> Unit, selectedPeriodF
                 ),
             ) {
                 Text(
-                    Formats.period(period),
+                    LocalFormats.current.strings.period(period),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = PulseType.pill,
                 )

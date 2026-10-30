@@ -1,7 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.PulseStrings
 import com.marcoelizalde.pulse.traffic.domain.Granularity
-import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import java.text.NumberFormat
 import java.time.LocalDateTime
@@ -10,8 +10,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
-/** Display text for the dashboard; English copy with US number formatting. */
-object Formats {
+/** Display text for the dashboard: [strings] words it in one language; numbers and dates use US formatting. */
+class Formats(val strings: PulseStrings) {
     private val hour = DateTimeFormatter.ofPattern("HH:mm", Locale.US)
     private val monthDay = DateTimeFormatter.ofPattern("MMM d", Locale.US)
     private val monthDayYear = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
@@ -23,15 +23,6 @@ object Formats {
         value < 1_000 -> value.toString()
         value / 1_000.0 < 999.95 -> oneDecimal(value / 1_000.0) + "K"
         else -> oneDecimal(value / 1_000_000.0) + "M"
-    }
-
-    /** Clean axis ticks from zero that cover [max] in at most four steps. */
-    fun axisTicks(max: Long): List<Long> {
-        val target = max.coerceAtLeast(4)
-        val step = generateSequence(1L) { it * 10 }
-            .flatMap { sequenceOf(it, it * 2, it * 5) }
-            .first { ceilDiv(target, it) <= 4 }
-        return (0..ceilDiv(target, step)).map { it * step }
     }
 
     /** Whole amounts without cents ("$139"); a currency code instead of a symbol is spaced ("MXN 120"). */
@@ -51,41 +42,12 @@ object Formats {
     /** Axis labels in whole currency units: "$15", "$1.5K". */
     fun moneyCompact(units: Long, currency: String?): String = currencyPrefix(currency) + compact(units)
 
-    /** Ticks for a second axis that reuse the first axis's [steps] gridlines, with a clean step that covers [max]. */
-    fun alignedTicks(max: Long, steps: Int): List<Long> {
-        val step = generateSequence(1L) { it * 10 }
-            .flatMap { sequenceOf(it, it * 2, it * 5) }
-            .first { it * steps >= max }
-        return (0..steps).map { it * step }
-    }
-
-    fun payments(count: Long): String = "${grouped(count)} ${if (count == 1L) "payment" else "payments"}"
+    fun payments(count: Long): String = strings.payments(count, grouped(count))
 
     fun share(share: Double): String = when {
         share <= 0.0 -> "0%"
         share < 0.005 -> "<1%"
         else -> "${(share * 100).roundToInt()}%"
-    }
-
-    fun period(period: Period): String = when (period) {
-        Period.TODAY -> "Today"
-        Period.LAST_7_DAYS -> "7 days"
-        Period.LAST_15_DAYS -> "15 days"
-        Period.LAST_30_DAYS -> "30 days"
-        Period.THIS_YEAR -> "This year"
-    }
-
-    fun refreshInterval(interval: RefreshInterval): String = "Every ${interval.minutes} min"
-
-    fun rankingOrder(order: RankingOrder): String = when (order) {
-        RankingOrder.VISITORS -> "By visitors"
-        RankingOrder.SALES -> "By sales"
-    }
-
-    /** The ranking's title, which names the order only when it is not the usual one; both fit beside the row range. */
-    fun rankingTitle(order: RankingOrder): String = when (order) {
-        RankingOrder.VISITORS -> "Top products"
-        RankingOrder.SALES -> "Top by sales"
     }
 
     fun range(window: ReportWindow): String = when {
@@ -102,14 +64,14 @@ object Formats {
     fun bucketDetail(start: LocalDateTime, granularity: Granularity): String = when (granularity) {
         Granularity.HOUR -> "${hour.format(start)} – ${hour.format(start.plusHours(1))}"
         Granularity.DAY -> weekdayMonthDay.format(start)
-        Granularity.WEEK -> "Week of ${monthDay.format(start)}"
+        Granularity.WEEK -> strings.weekOf(monthDay.format(start))
     }
 
     /** Header text for the ranking list: which rows are on screen, or the count when all fit. */
     fun rankingRange(firstVisible: Int, visibleRows: Int, total: Int): String {
-        if (total <= visibleRows) return "$total tracked"
+        if (total <= visibleRows) return strings.rankingAll(total)
         val first = firstVisible.coerceIn(0, total - visibleRows)
-        return "${first + 1}–${first + visibleRows} of $total"
+        return strings.rankingRows(first + 1, first + visibleRows, total)
     }
 
     private fun currencyPrefix(currency: String?): String {
@@ -122,5 +84,25 @@ object Formats {
         return if (tenths % 10 == 0L) (tenths / 10).toString() else "${tenths / 10}.${tenths % 10}"
     }
 
-    private fun ceilDiv(value: Long, divisor: Long): Long = (value + divisor - 1) / divisor
+    // Axis ticks are the same in every language.
+    companion object {
+        /** Clean axis ticks from zero that cover [max] in at most four steps. */
+        fun axisTicks(max: Long): List<Long> {
+            val target = max.coerceAtLeast(4)
+            val step = generateSequence(1L) { it * 10 }
+                .flatMap { sequenceOf(it, it * 2, it * 5) }
+                .first { ceilDiv(target, it) <= 4 }
+            return (0..ceilDiv(target, step)).map { it * step }
+        }
+
+        /** Ticks for a second axis that reuse the first axis's [steps] gridlines, with a clean step that covers [max]. */
+        fun alignedTicks(max: Long, steps: Int): List<Long> {
+            val step = generateSequence(1L) { it * 10 }
+                .flatMap { sequenceOf(it, it * 2, it * 5) }
+                .first { it * steps >= max }
+            return (0..steps).map { it * step }
+        }
+
+        private fun ceilDiv(value: Long, divisor: Long): Long = (value + divisor - 1) / divisor
+    }
 }
