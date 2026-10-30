@@ -105,7 +105,7 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `a failed first load shows the error and retry loads again`() = runTest(dispatcher) {
+    fun `a failed first load shows the error and refreshing now loads again`() = runTest(dispatcher) {
         var fail = true
         withViewModel({ period ->
             if (fail) throw AnalyticsException("DataFast rejected the token (401).")
@@ -120,7 +120,7 @@ class DashboardViewModelTest {
             }
 
             fail = false
-            viewModel.retry()
+            viewModel.refreshNow()
             runCurrent()
 
             with(viewModel.state.value) {
@@ -247,11 +247,11 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `retry always asks DataFast again`() = runTest(dispatcher) {
+    fun `refreshing now always asks DataFast again`() = runTest(dispatcher) {
         withViewModel({ dashboardFor(it) }) { viewModel ->
             runCurrent()
 
-            viewModel.retry()
+            viewModel.refreshNow()
             runCurrent()
 
             assertEquals(listOf(Period.LAST_7_DAYS, Period.LAST_7_DAYS), calls)
@@ -326,14 +326,114 @@ class DashboardViewModelTest {
         }
     }
 
+    @Test
+    fun `a saved refresh interval paces the refreshes`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.TEN_MINUTES)) { viewModel ->
+            runCurrent()
+            assertEquals(RefreshInterval.TEN_MINUTES, viewModel.state.value.refreshInterval)
+
+            advanceTimeBy(10.minutes - 1.seconds)
+            runCurrent()
+            assertEquals(1, calls.size)
+
+            advanceTimeBy(1.seconds)
+            runCurrent()
+            assertEquals(2, calls.size)
+        }
+    }
+
+    @Test
+    fun `choosing a refresh interval saves it and paces the next refresh from the last load`() = runTest(dispatcher) {
+        val store = SavedInterval()
+        withViewModel({ dashboardFor(it) }, refreshIntervals = store) { viewModel ->
+            runCurrent()
+            advanceTimeBy(2.minutes)
+
+            viewModel.setRefreshInterval(RefreshInterval.FIFTEEN_MINUTES)
+            runCurrent()
+
+            assertEquals(RefreshInterval.FIFTEEN_MINUTES, store.saved)
+            assertEquals(RefreshInterval.FIFTEEN_MINUTES, viewModel.state.value.refreshInterval)
+            assertEquals(1, calls.size)
+
+            advanceTimeBy(13.minutes - 1.seconds)
+            runCurrent()
+            assertEquals(1, calls.size)
+
+            advanceTimeBy(1.seconds)
+            runCurrent()
+            assertEquals(2, calls.size)
+        }
+    }
+
+    @Test
+    fun `choosing an interval shorter than the data's age reloads right away`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
+            runCurrent()
+            advanceTimeBy(7.minutes)
+            runCurrent()
+            assertEquals(1, calls.size)
+
+            viewModel.setRefreshInterval(RefreshInterval.FIVE_MINUTES)
+            runCurrent()
+
+            assertEquals(2, calls.size)
+        }
+    }
+
+    @Test
+    fun `a period opened within the refresh interval is reused without calling DataFast`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
+            runCurrent()
+            viewModel.select(Period.TODAY)
+            runCurrent()
+            advanceTimeBy(12.minutes)
+
+            viewModel.select(Period.LAST_7_DAYS)
+            runCurrent()
+
+            assertEquals(listOf(Period.LAST_7_DAYS, Period.TODAY), calls)
+            assertEquals(Period.LAST_7_DAYS, viewModel.state.value.dashboard?.period)
+        }
+    }
+
+    @Test
+    fun `refreshing now is ignored while a load is running`() = runTest(dispatcher) {
+        val slowLoad = CompletableDeferred<Unit>()
+        withViewModel({ period ->
+            slowLoad.await()
+            dashboardFor(period)
+        }) { viewModel ->
+            runCurrent()
+            assertTrue(viewModel.state.value.isLoading)
+
+            viewModel.refreshNow()
+            runCurrent()
+            slowLoad.complete(Unit)
+            runCurrent()
+
+            assertEquals(1, calls.size)
+            assertEquals(dashboardFor(Period.LAST_7_DAYS), viewModel.state.value.dashboard)
+        }
+    }
+
     private val shop = Product("1", "Shop", "shop.example")
     private val blog = Product("2", "Blog", "blog.example")
 
     private fun ranked(product: Product) = RankedProduct(product, visitors = 10, share = 0.5)
 
+    private class SavedInterval(var saved: RefreshInterval? = null) : RefreshIntervalStore {
+        override fun load(): RefreshInterval? = saved
+
+        override fun save(interval: RefreshInterval) {
+            saved = interval
+        }
+    }
+
     private inline fun TestScope.withViewModel(
         noinline load: suspend (Period) -> TrafficDashboard,
         noinline loadLogo: suspend (Product) -> ByteArray? = { null },
+        refreshIntervals: RefreshIntervalStore = SavedInterval(),
         block: TestScope.(DashboardViewModel) -> Unit,
     ) {
         val viewModel = DashboardViewModel(
@@ -343,6 +443,7 @@ class DashboardViewModelTest {
             },
             isDemo = true,
             loadLogo = loadLogo,
+            refreshIntervals = refreshIntervals,
             timeSource = testScheduler.timeSource,
         )
         try {

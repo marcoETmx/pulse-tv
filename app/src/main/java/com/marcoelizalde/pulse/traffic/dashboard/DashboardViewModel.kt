@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.ComparableTimeMark
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
@@ -28,6 +27,7 @@ data class DashboardUiState(
     val isDemo: Boolean = false,
     /** Encoded logo images by product id; products without one show a monogram. */
     val logos: Map<String, ByteArray> = emptyMap(),
+    val refreshInterval: RefreshInterval = RefreshInterval.DEFAULT,
 ) {
     /** The data on screen belongs to another period while the selected one loads. */
     val isShowingStalePeriod: Boolean get() = dashboard != null && dashboard.period != selectedPeriod
@@ -37,11 +37,16 @@ class DashboardViewModel(
     private val loadDashboard: suspend (Period) -> TrafficDashboard,
     isDemo: Boolean,
     private val loadLogo: suspend (Product) -> ByteArray? = { null },
-    private val refreshEvery: Duration = 5.minutes,
+    private val refreshIntervals: RefreshIntervalStore = NoSavedRefreshInterval,
     private val retryAfterFailure: Duration = 30.seconds,
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(DashboardUiState(isDemo = isDemo))
+    private val mutableState = MutableStateFlow(
+        DashboardUiState(isDemo = isDemo, refreshInterval = refreshIntervals.load() ?: RefreshInterval.DEFAULT),
+    )
+
+    /** How long data stays fresh: refreshes are this far apart, and a period this recent is reused. */
+    private val refreshEvery: Duration get() = mutableState.value.refreshInterval.duration
     val state: StateFlow<DashboardUiState> = mutableState.asStateFlow()
 
     private var refreshLoop: Job? = null
@@ -60,7 +65,24 @@ class DashboardViewModel(
         restart(reuseRecent = true)
     }
 
-    fun retry() = restart(reuseRecent = false)
+    /**
+     * Reloads the selected period now, skipping the recent data. Ignored while a load is running, so
+     * repeated presses do not pile up DataFast requests.
+     */
+    fun refreshNow() {
+        if (!mutableState.value.isLoading) restart(reuseRecent = false)
+    }
+
+    /**
+     * Saves [interval] and paces refreshes with it from now on: data on screen older than [interval]
+     * reloads right away, otherwise the next refresh comes [interval] after the last load.
+     */
+    fun setRefreshInterval(interval: RefreshInterval) {
+        if (interval == mutableState.value.refreshInterval) return
+        mutableState.update { it.copy(refreshInterval = interval) }
+        refreshIntervals.save(interval)
+        restart(reuseRecent = true)
+    }
 
     /** Stops refreshing while the dashboard is not visible. */
     fun pause() {
@@ -131,4 +153,10 @@ class DashboardViewModel(
             }
         }
     }
+}
+
+private object NoSavedRefreshInterval : RefreshIntervalStore {
+    override fun load(): RefreshInterval? = null
+
+    override fun save(interval: RefreshInterval) {}
 }

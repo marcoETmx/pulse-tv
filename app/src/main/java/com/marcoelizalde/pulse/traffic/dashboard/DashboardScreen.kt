@@ -38,7 +38,7 @@ fun DashboardRoute(viewModel: DashboardViewModel) {
         viewModel.resume()
         onStopOrDispose { viewModel.pause() }
     }
-    DashboardScreen(state, onSelectPeriod = viewModel::select, onRetry = viewModel::retry)
+    DashboardScreen(state, onSelectPeriod = viewModel::select, onRetry = viewModel::refreshNow)
 }
 
 @Composable

@@ -60,8 +60,9 @@ and signed with the local debug key, because it is meant for sideloading only. O
 | ▲ ▼ in the ranking | Move one product at a time; the header shows which rows are on screen |
 | ▲ | Back to the period selector |
 
-The dashboard refreshes every 5 minutes while it is on screen, pauses when you leave the app,
-and keeps the TV awake while it is open.
+The dashboard refreshes every 5 minutes while it is on screen (10 or 15 if you choose so; the choice
+is kept across restarts), pauses when you leave the app, and keeps the TV awake while it is open.
+Choosing an interval shorter than the age of the data on screen reloads it right away.
 
 A request that fails because of the network or a DataFast server error (5xx) is tried twice more,
 after 1 and 3 seconds, before the dashboard reports it. A dashboard is shown only when every website
@@ -76,8 +77,9 @@ makes the last one load more slowly instead of failing.
 
 A dashboard load costs one request per website for the period and one for the previous period. The
 previous period is reused for up to 30 minutes (less on short stretches like **Today**, so it stays
-within 1% of a fresh comparison), and the website list for an hour. A period you opened less than 5
-minutes ago is shown again without calling DataFast.
+within 1% of a fresh comparison), and the website list for an hour. A period you opened within the
+refresh interval is shown again without calling DataFast. No interval is shorter than 5 minutes, and
+refreshing by hand is ignored while a load is running, so presses never pile up requests.
 
 If DataFast still answers `429` (for example, because something else uses the same token), the app
 waits until DataFast's reset time before retrying, keeping the last data on screen. The previous
