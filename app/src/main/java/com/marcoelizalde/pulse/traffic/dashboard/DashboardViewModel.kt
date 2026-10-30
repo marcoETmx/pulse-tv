@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -23,7 +24,7 @@ data class DashboardUiState(
     val selectedPeriod: Period = Period.LAST_7_DAYS,
     val dashboard: TrafficDashboard? = null,
     val isLoading: Boolean = true,
-    val error: String? = null,
+    val error: AnalyticsProblem? = null,
     val isDemo: Boolean = false,
     /** Encoded logo images by product id; products without one show a monogram. */
     val logos: Map<String, ByteArray> = emptyMap(),
@@ -140,8 +141,8 @@ class DashboardViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val message = (e as? AnalyticsException)?.message ?: "Something went wrong loading the dashboard."
-            mutableState.update { it.copy(isLoading = false, error = message) }
+            val problem = (e as? AnalyticsException)?.problem ?: AnalyticsProblem.Unknown
+            mutableState.update { it.copy(isLoading = false, error = problem) }
             maxOf(retryAfterFailure, (e as? AnalyticsException)?.retryAfter ?: Duration.ZERO)
         }
     }

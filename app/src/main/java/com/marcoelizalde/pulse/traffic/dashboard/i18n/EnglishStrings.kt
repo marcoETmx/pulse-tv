@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard.i18n
 
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 
 object EnglishStrings : PulseStrings {
@@ -22,6 +23,15 @@ object EnglishStrings : PulseStrings {
     override fun periodFailed(selected: Period, error: String, shown: Period, time: String) =
         "Couldn't load ${inSentence(selected)}: $error · showing ${inSentence(shown)} from $time"
     override fun refreshFailed(error: String, time: String) = "Couldn't refresh: $error · showing data from $time"
+    override fun problem(problem: AnalyticsProblem) = when (problem) {
+        AnalyticsProblem.Unreachable -> "Can't reach DataFast. Check the TV's internet connection."
+        AnalyticsProblem.TokenRejected -> "DataFast rejected the token (401). Check DATAFAST_TOKEN in local.properties."
+        AnalyticsProblem.MissingPermissions -> "The DataFast token needs the analytics:read and websites:read permissions (403)."
+        is AnalyticsProblem.RateLimited -> "DataFast rate limit reached (${problem.requestsPerMinute} requests per minute)."
+        is AnalyticsProblem.ProviderError -> "DataFast error ${problem.status}" + problem.detail?.let { ": $it" }.orEmpty()
+        AnalyticsProblem.UnexpectedResponse -> "DataFast sent an unexpected response."
+        AnalyticsProblem.Unknown -> "Something went wrong loading the dashboard."
+    }
     override val demoBadge = "DEMO DATA"
 
     override val visitors = "Visitors"

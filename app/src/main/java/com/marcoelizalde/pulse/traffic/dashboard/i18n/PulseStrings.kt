@@ -1,6 +1,7 @@
 package com.marcoelizalde.pulse.traffic.dashboard.i18n
 
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 
 /**
@@ -20,6 +21,7 @@ interface PulseStrings {
     fun loadingPeriod(period: Period): String
     fun periodFailed(selected: Period, error: String, shown: Period, time: String): String
     fun refreshFailed(error: String, time: String): String
+    fun problem(problem: AnalyticsProblem): String
     val demoBadge: String
 
     // Visitors card and chart

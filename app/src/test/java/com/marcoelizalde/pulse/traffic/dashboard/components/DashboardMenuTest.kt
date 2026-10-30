@@ -4,6 +4,7 @@ import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
 import com.marcoelizalde.pulse.traffic.dashboard.i18n.EnglishStrings
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -45,7 +46,7 @@ class DashboardMenuTest {
     @Test
     fun `while loading, after a failure or before any data the footer says so instead`() {
         val loading = DashboardUiState(Period.TODAY, dashboard, isLoading = true, error = null)
-        val failed = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = "DataFast error 500")
+        val failed = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = AnalyticsProblem.ProviderError(500, detail = null))
 
         assertEquals(
             listOf("Updated ${time(updatedAt)} · refreshing…", "Updated ${time(updatedAt)} · retrying soon", "Not loaded yet"),

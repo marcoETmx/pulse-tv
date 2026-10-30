@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.dashboard.components
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
 import com.marcoelizalde.pulse.traffic.dashboard.i18n.EnglishStrings
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
@@ -38,14 +39,14 @@ class StatusLineTest {
 
     @Test
     fun `a failed refresh still says which data is on screen`() {
-        val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = "DataFast error 500")
+        val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = AnalyticsProblem.ProviderError(500, detail = null))
 
         assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state, formats))
     }
 
     @Test
     fun `a period that failed to load names it and the period still on screen`() {
-        val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = false, error = "DataFast error 500")
+        val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = false, error = AnalyticsProblem.ProviderError(500, detail = null))
 
         assertEquals("Couldn't load 30 days: DataFast error 500 · showing today from $time", statusLine(state, formats))
     }
@@ -59,7 +60,7 @@ class StatusLineTest {
 
     @Test
     fun `a first load that failed says there is no data`() {
-        val state = DashboardUiState(Period.TODAY, dashboard = null, isLoading = false, error = "DataFast error 500")
+        val state = DashboardUiState(Period.TODAY, dashboard = null, isLoading = false, error = AnalyticsProblem.ProviderError(500, detail = null))
 
         assertEquals("Couldn't load data", statusLine(state, formats))
     }
@@ -81,7 +82,7 @@ class StatusLineTest {
 
     @Test
     fun `demo data still shows a failed refresh as text`() {
-        val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = "DataFast error 500", isDemo = true)
+        val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = AnalyticsProblem.ProviderError(500, detail = null), isDemo = true)
 
         assertFalse(showsDemoBadge(state))
         assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state, formats))

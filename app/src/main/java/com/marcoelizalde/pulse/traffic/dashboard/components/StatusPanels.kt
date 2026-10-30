@@ -118,8 +118,8 @@ internal fun statusLine(state: DashboardUiState, formats: Formats): String {
         isUpToDate(state) -> strings.updated(UpdatedAt.format(dashboard.updatedAt))
         state.isLoading && state.isShowingStalePeriod -> strings.loadingPeriod(state.selectedPeriod)
         state.error != null && state.isShowingStalePeriod ->
-            strings.periodFailed(state.selectedPeriod, state.error, dashboard.period, UpdatedAt.format(dashboard.updatedAt))
-        state.error != null -> strings.refreshFailed(state.error, UpdatedAt.format(dashboard.updatedAt))
+            strings.periodFailed(state.selectedPeriod, strings.problem(state.error), dashboard.period, UpdatedAt.format(dashboard.updatedAt))
+        state.error != null -> strings.refreshFailed(strings.problem(state.error), UpdatedAt.format(dashboard.updatedAt))
         // Neither up to date nor failed, so the period on screen is reloading.
         else -> strings.refreshing
     }

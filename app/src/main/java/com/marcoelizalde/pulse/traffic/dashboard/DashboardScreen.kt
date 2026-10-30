@@ -85,7 +85,7 @@ fun DashboardScreen(
                         rankingOrder = effectiveRankingOrder(state.rankingOrder, dashboard.totalSales),
                         dimmed = state.isShowingStalePeriod,
                     )
-                    state.error != null -> ErrorPanel(state.error, onRefreshNow)
+                    state.error != null -> ErrorPanel(LocalFormats.current.strings.problem(state.error), onRefreshNow)
                     else -> LoadingPanel()
                 }
             }
