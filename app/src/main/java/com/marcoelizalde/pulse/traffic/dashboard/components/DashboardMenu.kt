@@ -58,6 +58,7 @@ import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.BuildConfig
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.dashboard.RefreshInterval
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
@@ -81,6 +82,7 @@ internal fun KeyEvent.isMenuPress(): Boolean =
 fun DashboardMenu(
     state: DashboardUiState,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
+    onSelectRankingOrder: (RankingOrder) -> Unit,
     onRefreshNow: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -97,7 +99,7 @@ fun DashboardMenu(
             contentAlignment = Alignment.CenterEnd,
         ) {
             AnimatedVisibility(visibleState = shown, enter = slideInHorizontally { it } + fadeIn()) {
-                MenuPanel(state, onSelectRefreshInterval, onRefreshNow)
+                MenuPanel(state, onSelectRefreshInterval, onSelectRankingOrder, onRefreshNow)
             }
         }
     }
@@ -107,6 +109,7 @@ fun DashboardMenu(
 private fun MenuPanel(
     state: DashboardUiState,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
+    onSelectRankingOrder: (RankingOrder) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
     val currentInterval = remember { FocusRequester() }
@@ -131,6 +134,15 @@ private fun MenuPanel(
                     checked = current,
                     onClick = { onSelectRefreshInterval(interval) },
                     modifier = if (current) Modifier.focusRequester(currentInterval) else Modifier,
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            MenuSection("Top products")
+            RankingOrder.entries.forEach { order ->
+                MenuOption(
+                    Formats.rankingOrder(order),
+                    checked = order == state.rankingOrder,
+                    onClick = { onSelectRankingOrder(order) },
                 )
             }
             Spacer(Modifier.height(10.dp))

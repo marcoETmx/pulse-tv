@@ -328,7 +328,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `a saved refresh interval paces the refreshes`() = runTest(dispatcher) {
-        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.TEN_MINUTES)) { viewModel ->
+        withViewModel({ dashboardFor(it) }, refreshIntervals = Saved<RefreshInterval>(RefreshInterval.TEN_MINUTES)) { viewModel ->
             runCurrent()
             assertEquals(RefreshInterval.TEN_MINUTES, viewModel.state.value.refreshInterval)
 
@@ -344,7 +344,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `choosing a refresh interval saves it and paces the next refresh from the last load`() = runTest(dispatcher) {
-        val store = SavedInterval()
+        val store = Saved<RefreshInterval>()
         withViewModel({ dashboardFor(it) }, refreshIntervals = store) { viewModel ->
             runCurrent()
             advanceTimeBy(2.minutes)
@@ -368,7 +368,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `choosing an interval shorter than the data's age reloads right away`() = runTest(dispatcher) {
-        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
+        withViewModel({ dashboardFor(it) }, refreshIntervals = Saved<RefreshInterval>(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
             runCurrent()
             advanceTimeBy(7.minutes)
             runCurrent()
@@ -383,7 +383,7 @@ class DashboardViewModelTest {
 
     @Test
     fun `a period opened within the refresh interval is reused without calling DataFast`() = runTest(dispatcher) {
-        withViewModel({ dashboardFor(it) }, refreshIntervals = SavedInterval(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
+        withViewModel({ dashboardFor(it) }, refreshIntervals = Saved<RefreshInterval>(RefreshInterval.FIFTEEN_MINUTES)) { viewModel ->
             runCurrent()
             viewModel.select(Period.TODAY)
             runCurrent()
@@ -417,23 +417,48 @@ class DashboardViewModelTest {
         }
     }
 
+    @Test
+    fun `a saved ranking order is used from the start`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, rankingOrders = Saved(RankingOrder.SALES)) { viewModel ->
+            runCurrent()
+
+            assertEquals(RankingOrder.SALES, viewModel.state.value.rankingOrder)
+        }
+    }
+
+    @Test
+    fun `choosing a ranking order saves it without calling DataFast`() = runTest(dispatcher) {
+        val store = Saved<RankingOrder>()
+        withViewModel({ dashboardFor(it) }, rankingOrders = store) { viewModel ->
+            runCurrent()
+
+            viewModel.setRankingOrder(RankingOrder.SALES)
+            runCurrent()
+
+            assertEquals(RankingOrder.SALES, store.saved)
+            assertEquals(RankingOrder.SALES, viewModel.state.value.rankingOrder)
+            assertEquals(1, calls.size)
+        }
+    }
+
     private val shop = Product("1", "Shop", "shop.example")
     private val blog = Product("2", "Blog", "blog.example")
 
     private fun ranked(product: Product) = RankedProduct(product, visitors = 10, share = 0.5)
 
-    private class SavedInterval(var saved: RefreshInterval? = null) : RefreshIntervalStore {
-        override fun load(): RefreshInterval? = saved
+    private class Saved<T : Any>(var saved: T? = null) : SettingStore<T> {
+        override fun load(): T? = saved
 
-        override fun save(interval: RefreshInterval) {
-            saved = interval
+        override fun save(value: T) {
+            saved = value
         }
     }
 
     private inline fun TestScope.withViewModel(
         noinline load: suspend (Period) -> TrafficDashboard,
         noinline loadLogo: suspend (Product) -> ByteArray? = { null },
-        refreshIntervals: RefreshIntervalStore = SavedInterval(),
+        refreshIntervals: SettingStore<RefreshInterval> = Saved(),
+        rankingOrders: SettingStore<RankingOrder> = Saved(),
         block: TestScope.(DashboardViewModel) -> Unit,
     ) {
         val viewModel = DashboardViewModel(
@@ -444,6 +469,7 @@ class DashboardViewModelTest {
             isDemo = true,
             loadLogo = loadLogo,
             refreshIntervals = refreshIntervals,
+            rankingOrders = rankingOrders,
             timeSource = testScheduler.timeSource,
         )
         try {

@@ -41,6 +41,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.Change
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.dashboard.RankingRow
 import com.marcoelizalde.pulse.traffic.dashboard.rankingRows
 import com.marcoelizalde.pulse.traffic.domain.RankedProduct
@@ -62,14 +64,20 @@ private val RowGap = 4.dp
 private val RowShape = RoundedCornerShape(12.dp)
 
 /**
- * Every product in its own row. Seven rows fit on screen; D-pad ▶ enters the list and ▲▼ moves
+ * Every product in its own row, in [order]. Seven rows fit on screen; D-pad ▶ enters the list and ▲▼ moves
  * one row at a time, scrolling the rest into view.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ProductRanking(ranking: List<RankedProduct>, logos: Map<String, ByteArray>, modifier: Modifier = Modifier) {
-    val rows = remember(ranking) { rankingRows(ranking) }
-    val maxVisitors = (rows.maxOfOrNull { it.visitors } ?: 0).coerceAtLeast(1)
+fun ProductRanking(
+    ranking: List<RankedProduct>,
+    logos: Map<String, ByteArray>,
+    order: RankingOrder,
+    modifier: Modifier = Modifier,
+) {
+    val rows = remember(ranking, order) { rankingRows(ranking, order) }
+    // The bars measure what the ranking is ordered by, in that measure's color, as in the chart.
+    val barColor = if (order == RankingOrder.SALES) PulseColors.SalesSeries else PulseColors.Series
     val scroll = rememberScrollState()
     val pitch = with(LocalDensity.current) { (RowHeight + RowGap).toPx() }
     val firstVisible by remember { derivedStateOf { (scroll.value / pitch).roundToInt() } }
@@ -78,7 +86,7 @@ fun ProductRanking(ranking: List<RankedProduct>, logos: Map<String, ByteArray>, 
     PulseCard(modifier) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 20.dp)) {
             Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Overline("Top products")
+                Overline(Formats.rankingTitle(order))
                 Spacer(Modifier.weight(1f))
                 val range = Formats.rankingRange(firstVisible, VISIBLE_ROWS, rows.size)
                 val hint = when {
@@ -99,7 +107,7 @@ fun ProductRanking(ranking: List<RankedProduct>, logos: Map<String, ByteArray>, 
             }
             val firstRowFocus = remember { FocusRequester() }
             CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollOnlyAsNeeded) {
-                RankingList(rows, logos, maxVisitors, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
+                RankingList(rows, logos, barColor, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
             }
         }
     }
@@ -109,7 +117,7 @@ fun ProductRanking(ranking: List<RankedProduct>, logos: Map<String, ByteArray>, 
 private fun RankingList(
     rows: List<RankingRow>,
     logos: Map<String, ByteArray>,
-    maxVisitors: Long,
+    barColor: Color,
     scroll: ScrollState,
     firstRowFocus: FocusRequester,
     onBrowsingChange: (Boolean) -> Unit,
@@ -131,7 +139,8 @@ private fun RankingList(
                 RankingLine(
                     row,
                     logo = logos[row.productId],
-                    fraction = row.visitors.toFloat() / maxVisitors,
+                    fraction = row.bar.toFloat(),
+                    barColor = barColor,
                     order = index,
                     modifier = if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier,
                 )
@@ -151,7 +160,14 @@ private val ScrollOnlyAsNeeded = object : BringIntoViewSpec {
 }
 
 @Composable
-private fun RankingLine(row: RankingRow, logo: ByteArray?, fraction: Float, order: Int, modifier: Modifier = Modifier) {
+private fun RankingLine(
+    row: RankingRow,
+    logo: ByteArray?,
+    fraction: Float,
+    barColor: Color,
+    order: Int,
+    modifier: Modifier = Modifier,
+) {
     var focused by remember { mutableStateOf(false) }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(fraction) {
@@ -213,13 +229,13 @@ private fun RankingLine(row: RankingRow, logo: ByteArray?, fraction: Float, orde
                     .drawBehind {
                         val radius = CornerRadius(size.height / 2)
                         drawRoundRect(PulseColors.Grid, cornerRadius = radius)
-                        val visible = if (row.visitors > 0) maxOf(size.width * grow.value, size.height) else 0f
+                        val visible = if (row.bar > 0) maxOf(size.width * grow.value, size.height) else 0f
                         if (visible > 0f) {
                             // Square at the baseline, rounded at the data end.
                             val bar = Path().apply {
                                 addRoundRect(RoundRect(0f, 0f, visible, size.height, topRightCornerRadius = radius, bottomRightCornerRadius = radius))
                             }
-                            drawPath(bar, PulseColors.Series)
+                            drawPath(bar, barColor)
                         }
                     },
             )

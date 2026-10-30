@@ -96,6 +96,12 @@ class FormatsTest {
     }
 
     @Test
+    fun `ranking orders have menu labels and a section title`() {
+        assertEquals(listOf("By visitors", "By sales"), RankingOrder.entries.map(Formats::rankingOrder))
+        assertEquals(listOf("Top products", "Top by sales"), RankingOrder.entries.map(Formats::rankingTitle))
+    }
+
+    @Test
     fun `range reads naturally for one day, a few days and across years`() {
         fun window(start: LocalDate, end: LocalDate) = ReportWindow(start, end, zone, Granularity.DAY)
 

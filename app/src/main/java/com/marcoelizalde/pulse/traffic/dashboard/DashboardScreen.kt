@@ -47,6 +47,7 @@ fun DashboardRoute(viewModel: DashboardViewModel) {
         state,
         onSelectPeriod = viewModel::select,
         onSelectRefreshInterval = viewModel::setRefreshInterval,
+        onSelectRankingOrder = viewModel::setRankingOrder,
         onRefreshNow = viewModel::refreshNow,
     )
 }
@@ -56,6 +57,7 @@ fun DashboardScreen(
     state: DashboardUiState,
     onSelectPeriod: (Period) -> Unit,
     onSelectRefreshInterval: (RefreshInterval) -> Unit,
+    onSelectRankingOrder: (RankingOrder) -> Unit,
     onRefreshNow: () -> Unit,
 ) {
     val selectedPeriodFocus = remember { FocusRequester() }
@@ -77,7 +79,12 @@ fun DashboardScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val dashboard = state.dashboard
                 when {
-                    dashboard != null -> DashboardContent(dashboard, state.logos, dimmed = state.isShowingStalePeriod)
+                    dashboard != null -> DashboardContent(
+                        dashboard,
+                        state.logos,
+                        rankingOrder = effectiveRankingOrder(state.rankingOrder, dashboard.totalSales),
+                        dimmed = state.isShowingStalePeriod,
+                    )
                     state.error != null -> ErrorPanel(state.error, onRefreshNow)
                     else -> LoadingPanel()
                 }
@@ -93,6 +100,10 @@ fun DashboardScreen(
                 onSelectRefreshInterval(interval)
                 menuOpen = false
             },
+            onSelectRankingOrder = { order ->
+                onSelectRankingOrder(order)
+                menuOpen = false
+            },
             onRefreshNow = {
                 onRefreshNow()
                 menuOpen = false
@@ -103,11 +114,16 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun DashboardContent(dashboard: TrafficDashboard, logos: Map<String, ByteArray>, dimmed: Boolean) {
+private fun DashboardContent(
+    dashboard: TrafficDashboard,
+    logos: Map<String, ByteArray>,
+    rankingOrder: RankingOrder,
+    dimmed: Boolean,
+) {
     val alpha by animateFloatAsState(if (dimmed) 0.35f else 1f, label = "dim")
     Row(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }) {
         VisitorsCard(dashboard, Modifier.weight(0.6f).fillMaxHeight())
         Spacer(Modifier.width(20.dp))
-        ProductRanking(dashboard.ranking, logos, Modifier.weight(0.4f).fillMaxHeight())
+        ProductRanking(dashboard.ranking, logos, rankingOrder, Modifier.weight(0.4f).fillMaxHeight())
     }
 }

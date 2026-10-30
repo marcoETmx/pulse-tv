@@ -77,6 +77,17 @@ object Formats {
 
     fun refreshInterval(interval: RefreshInterval): String = "Every ${interval.minutes} min"
 
+    fun rankingOrder(order: RankingOrder): String = when (order) {
+        RankingOrder.VISITORS -> "By visitors"
+        RankingOrder.SALES -> "By sales"
+    }
+
+    /** The ranking's title, which names the order only when it is not the usual one; both fit beside the row range. */
+    fun rankingTitle(order: RankingOrder): String = when (order) {
+        RankingOrder.VISITORS -> "Top products"
+        RankingOrder.SALES -> "Top by sales"
+    }
+
     fun range(window: ReportWindow): String = when {
         window.start == window.end -> weekdayMonthDay.format(window.start)
         window.start.year == window.end.year -> "${monthDay.format(window.start)} – ${monthDay.format(window.end)}"

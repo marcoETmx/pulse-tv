@@ -70,6 +70,11 @@ changes; the focus then goes back to where it was. Periods are picked on the top
 
 - **Auto refresh**: every 5, 10 or 15 minutes, with ✓ on the current one. The choice is kept across
   restarts.
+- **Top products**: by visitors, as usual, or by sales, with ✓ on the current one.
+  - By sales, the bars (in the sales gold) and percentages show each product's part of the sales, and the title reads "Top by sales".
+  - Products that sold the same, nothing included, keep their visitor order.
+  - When websites report different currencies, sales can't be compared, so the ranking stays by visitors.
+  - The choice is kept across restarts. It only reorders the data on screen, so it costs no DataFast requests.
 - **Refresh now**: reloads right away, skipping data loaded minutes ago. It reads "Refreshing…" and
   can't be picked while a load is running.
 - At the bottom: where the data comes from (DataFast or demo), the app version, when the data was

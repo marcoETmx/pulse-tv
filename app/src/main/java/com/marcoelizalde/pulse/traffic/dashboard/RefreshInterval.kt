@@ -1,5 +1,6 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -19,13 +20,9 @@ enum class RefreshInterval(val minutes: Int) {
 
         /** The choice lasting [minutes], or null when there is none. */
         fun ofMinutes(minutes: Int): RefreshInterval? = entries.firstOrNull { it.minutes == minutes }
+
+        /** Kept in [file] as its minutes. */
+        fun store(file: File): SettingStore<RefreshInterval> =
+            FileSettingStore(file, encode = { it.minutes.toString() }, decode = { it.toIntOrNull()?.let(::ofMinutes) })
     }
-}
-
-/** Keeps the chosen [RefreshInterval] between launches. */
-interface RefreshIntervalStore {
-    /** The saved choice, or null when nothing was chosen yet. */
-    fun load(): RefreshInterval?
-
-    fun save(interval: RefreshInterval)
 }

@@ -28,6 +28,8 @@ data class DashboardUiState(
     /** Encoded logo images by product id; products without one show a monogram. */
     val logos: Map<String, ByteArray> = emptyMap(),
     val refreshInterval: RefreshInterval = RefreshInterval.DEFAULT,
+    /** What Top products ranks by, as chosen; the screen falls back to visitors when sales cannot be compared. */
+    val rankingOrder: RankingOrder = RankingOrder.DEFAULT,
 ) {
     /** The data on screen belongs to another period while the selected one loads. */
     val isShowingStalePeriod: Boolean get() = dashboard != null && dashboard.period != selectedPeriod
@@ -37,12 +39,17 @@ class DashboardViewModel(
     private val loadDashboard: suspend (Period) -> TrafficDashboard,
     isDemo: Boolean,
     private val loadLogo: suspend (Product) -> ByteArray? = { null },
-    private val refreshIntervals: RefreshIntervalStore = NoSavedRefreshInterval,
+    private val refreshIntervals: SettingStore<RefreshInterval> = NothingSaved(),
+    private val rankingOrders: SettingStore<RankingOrder> = NothingSaved(),
     private val retryAfterFailure: Duration = 30.seconds,
     private val timeSource: TimeSource.WithComparableMarks = TimeSource.Monotonic,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(
-        DashboardUiState(isDemo = isDemo, refreshInterval = refreshIntervals.load() ?: RefreshInterval.DEFAULT),
+        DashboardUiState(
+            isDemo = isDemo,
+            refreshInterval = refreshIntervals.load() ?: RefreshInterval.DEFAULT,
+            rankingOrder = rankingOrders.load() ?: RankingOrder.DEFAULT,
+        ),
     )
 
     /** How long data stays fresh: refreshes are this far apart, and a period this recent is reused. */
@@ -77,6 +84,13 @@ class DashboardViewModel(
      * Saves [interval] and paces refreshes with it from now on: data on screen older than [interval]
      * reloads right away, otherwise the next refresh comes [interval] after the last load.
      */
+    /** Saves [order] for Top products. It only reorders the data on screen, so DataFast is not asked again. */
+    fun setRankingOrder(order: RankingOrder) {
+        if (order == mutableState.value.rankingOrder) return
+        mutableState.update { it.copy(rankingOrder = order) }
+        rankingOrders.save(order)
+    }
+
     fun setRefreshInterval(interval: RefreshInterval) {
         if (interval == mutableState.value.refreshInterval) return
         mutableState.update { it.copy(refreshInterval = interval) }
@@ -155,8 +169,9 @@ class DashboardViewModel(
     }
 }
 
-private object NoSavedRefreshInterval : RefreshIntervalStore {
-    override fun load(): RefreshInterval? = null
+/** Remembers nothing, for when no store is given. */
+private class NothingSaved<T : Any> : SettingStore<T> {
+    override fun load(): T? = null
 
-    override fun save(interval: RefreshInterval) {}
+    override fun save(value: T) {}
 }

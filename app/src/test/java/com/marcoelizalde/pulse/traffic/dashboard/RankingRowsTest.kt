@@ -17,9 +17,9 @@ class RankingRowsTest {
 
         assertEquals(
             listOf(
-                RankingRow(1, "Product 1", 99, 0.1, productId = "1"),
-                RankingRow(2, "Product 2", 98, 0.1, productId = "2"),
-                RankingRow(3, "Product 3", 97, 0.1, productId = "3"),
+                RankingRow(1, "Product 1", 99, 0.1, productId = "1", bar = 1.0),
+                RankingRow(2, "Product 2", 98, 0.1, productId = "2", bar = 98 / 99.0),
+                RankingRow(3, "Product 3", 97, 0.1, productId = "3", bar = 97 / 99.0),
             ),
             rows,
         )
@@ -49,7 +49,7 @@ class RankingRowsTest {
     fun `a row shows only the product name, never its domain`() {
         val rows = rankingRows(listOf(RankedProduct(Product("1", "Shop", "shop.example"), 5, 1.0)))
 
-        assertEquals(listOf(RankingRow(1, "Shop", 5, 1.0, productId = "1")), rows)
+        assertEquals(listOf(RankingRow(1, "Shop", 5, 1.0, productId = "1", bar = 1.0)), rows)
     }
 
     @Test
@@ -69,6 +69,56 @@ class RankingRowsTest {
         assertEquals(
             listOf(Change.UP, Change.DOWN, null, null),
             listOf(change(12, previous = 10), change(8, previous = 10), change(10, previous = 10), change(10, previous = null)),
+        )
+    }
+
+    private fun sold(cents: Long) = Sales(cents, payments = 1, currency = "$")
+
+    /** In the domain's visitor order. */
+    private val byVisitors = listOf(
+        RankedProduct(Product("1", "Flowtion", "f.example"), visitors = 300, share = 0.6),
+        RankedProduct(Product("2", "DevZap", "d.example"), visitors = 100, share = 0.2),
+        RankedProduct(Product("3", "Braix", "b.example"), visitors = 60, share = 0.12, sales = sold(12_600)),
+        RankedProduct(Product("4", "ShipList", "s.example"), visitors = 40, share = 0.08, sales = sold(13_900)),
+    )
+
+    @Test
+    fun `by sales, rows follow the sales and products that sold the same keep their visitor order`() {
+        val rows = rankingRows(byVisitors, RankingOrder.SALES)
+
+        assertEquals(listOf("ShipList", "Braix", "Flowtion", "DevZap"), rows.map { it.name })
+        assertEquals(listOf(1, 2, 3, 4), rows.map { it.rank })
+    }
+
+    @Test
+    fun `by sales, the bar and the share follow each product's part of the sales`() {
+        val rows = rankingRows(byVisitors, RankingOrder.SALES)
+
+        assertEquals(listOf(13_900 / 26_500.0, 12_600 / 26_500.0, 0.0, 0.0), rows.map { it.share })
+        assertEquals(listOf(1.0, 12_600 / 13_900.0, 0.0, 0.0), rows.map { it.bar })
+        // The visitors and the sale amounts stay as they were.
+        assertEquals(listOf(40L, 60L, 300L, 100L), rows.map { it.visitors })
+        assertEquals(listOf(sold(13_900), sold(12_600), null, null), rows.map { it.sales })
+    }
+
+    @Test
+    fun `by visitors, the bar is each product's visitors against the top product`() {
+        val rows = rankingRows(byVisitors, RankingOrder.VISITORS)
+
+        assertEquals(listOf("Flowtion", "DevZap", "Braix", "ShipList"), rows.map { it.name })
+        assertEquals(listOf(0.6, 0.2, 0.12, 0.08), rows.map { it.share })
+        assertEquals(listOf(1.0, 100 / 300.0, 60 / 300.0, 40 / 300.0), rows.map { it.bar })
+    }
+
+    @Test
+    fun `sales in different currencies cannot be compared, so the ranking stays by visitors`() {
+        assertEquals(
+            listOf(RankingOrder.VISITORS, RankingOrder.SALES, RankingOrder.VISITORS),
+            listOf(
+                effectiveRankingOrder(RankingOrder.SALES, totalSales = null),
+                effectiveRankingOrder(RankingOrder.SALES, totalSales = sold(26_500)),
+                effectiveRankingOrder(RankingOrder.VISITORS, totalSales = null),
+            ),
         )
     }
 }
