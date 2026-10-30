@@ -123,8 +123,7 @@ class FormatsTest {
             override val locale: Locale = Locale.GERMAN
             override val groupingSeparator = '.'
             override val decimalSeparator = ','
-            override val thousandsSuffix = " Tsd."
-            override val millionsSuffix = " Mio."
+            override val compactUnits = listOf(1_000L to " Tsd.", 1_000_000L to " Mio.")
             override val percentSuffix = " %"
             override val currencyAfterAmount = true
             override val monthDayPattern = "d. MMM"
@@ -138,6 +137,29 @@ class FormatsTest {
         assertEquals(listOf("999", "12.450", "1.234.567"), listOf(999L, 12_450L, 1_234_567L).map(germanStyle::grouped))
         assertEquals(listOf("1 Tsd.", "1,3 Tsd.", "4,2 Mio."), listOf(1_000L, 1_284L, 4_200_000L).map(germanStyle::compact))
         assertEquals(listOf("0 %", "<1 %", "42 %"), listOf(0.0, 0.004, 0.4231).map(germanStyle::share))
+    }
+
+    @Test
+    fun `compact numbers use the language's units, and smaller numbers are written in full`() {
+        val japaneseUnits = Formats(
+            object : PulseStrings by EnglishStrings {
+                override val compactUnits = listOf(10_000L to "万", 100_000_000L to "億")
+            },
+        )
+        val koreanUnits = Formats(
+            object : PulseStrings by EnglishStrings {
+                override val compactUnits = listOf(1_000L to "천", 10_000L to "만", 100_000_000L to "억")
+            },
+        )
+
+        assertEquals(
+            listOf("999", "1,234", "9,999", "1.2万", "100万", "9999.9万", "1億", "1.2億"),
+            listOf(999L, 1_234L, 9_999L, 12_345L, 999_950L, 99_999_400L, 99_999_999L, 123_456_789L).map(japaneseUnits::compact),
+        )
+        assertEquals(
+            listOf("999", "1.2천", "1만", "1.2만", "1.2억"),
+            listOf(999L, 1_234L, 9_999L, 12_345L, 123_456_789L).map(koreanUnits::compact),
+        )
     }
 
     @Test

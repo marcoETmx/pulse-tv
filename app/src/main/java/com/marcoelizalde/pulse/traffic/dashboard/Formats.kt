@@ -29,10 +29,15 @@ class Formats(val strings: PulseStrings, zone: ZoneId = ZoneId.systemDefault()) 
 
     fun grouped(value: Long): String = DecimalFormat("#,##0", symbols).format(value)
 
-    fun compact(value: Long): String = when {
-        value < 1_000 -> value.toString()
-        value / 1_000.0 < 999.95 -> oneDecimal(value / 1_000.0) + strings.thousandsSuffix
-        else -> oneDecimal(value / 1_000_000.0) + strings.millionsSuffix
+    /** Shortened with the language's units ("1.3K", "1.2万"); numbers below the smallest unit are written in full. */
+    fun compact(value: Long): String {
+        val units = strings.compactUnits
+        if (value < units.first().first) return grouped(value)
+        // The smallest unit whose rounded amount stays below the next unit: 999,960 is "1M", not "1000K".
+        val (size, suffix) = units.zipWithNext()
+            .firstOrNull { (unit, next) -> value / unit.first.toDouble() < next.first / unit.first - 0.05 }
+            ?.first ?: units.last()
+        return oneDecimal(value / size.toDouble()) + suffix
     }
 
     /** Hours and minutes in the TV's timezone, such as when the data was updated. */

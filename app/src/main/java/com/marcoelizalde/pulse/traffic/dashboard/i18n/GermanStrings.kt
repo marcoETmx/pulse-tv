@@ -10,8 +10,7 @@ object GermanStrings : PulseStrings {
     override val locale: Locale = Locale.forLanguageTag("de-DE")
     override val groupingSeparator = '.'
     override val decimalSeparator = ','
-    override val thousandsSuffix = "k"
-    override val millionsSuffix = "M"
+    override val compactUnits = listOf(1_000L to "k", 1_000_000L to "M")
     override val percentSuffix = "\u00A0%"
     override val currencyAfterAmount = true
     override val monthDayPattern = "d. MMM"
