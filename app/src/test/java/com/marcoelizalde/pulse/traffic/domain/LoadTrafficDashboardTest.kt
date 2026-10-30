@@ -256,6 +256,23 @@ class LoadTrafficDashboardTest {
     }
 
     @Test
+    fun `a load reads the clock once, so one running across midnight describes a single moment`() = runTest {
+        // 23:59:59 in Mexico City, and every later reading a second later, into the next day.
+        val startedAt = Instant.parse("2026-10-24T05:59:59Z")
+        val clock = TickingClock(startedAt, zone, Duration.ofSeconds(1))
+        val source = FakeAnalyticsSource(shop to ProductTraffic(1, emptyList()), previous = mapOf(shop to 1L))
+
+        val dashboard = LoadTrafficDashboard(source, clock)(Period.TODAY)
+
+        assertEquals(LocalDate.of(2026, 10, 23), dashboard.window.end)
+        assertEquals(
+            TimeSpan(LocalDateTime.of(2026, 10, 22, 0, 0), LocalDateTime.of(2026, 10, 22, 23, 59, 59), zone),
+            source.requestedSpans.getValue(shop),
+        )
+        assertEquals(startedAt, dashboard.updatedAt)
+    }
+
+    @Test
     fun `dashboard is stamped with the load time`() = runTest {
         val source = FakeAnalyticsSource(shop to ProductTraffic(1, emptyList()))
 
@@ -311,5 +328,14 @@ class LoadTrafficDashboardTest {
         override fun getZone(): ZoneId = zone
 
         override fun withZone(zone: ZoneId): Clock = MutableClock(now, zone)
+    }
+
+    /** Moves forward [step] every time it is read, like a load that takes a while. */
+    private class TickingClock(private var now: Instant, private val zone: ZoneId, private val step: Duration) : Clock() {
+        override fun instant(): Instant = now.also { now += step }
+
+        override fun getZone(): ZoneId = zone
+
+        override fun withZone(zone: ZoneId): Clock = TickingClock(now, zone, step)
     }
 }

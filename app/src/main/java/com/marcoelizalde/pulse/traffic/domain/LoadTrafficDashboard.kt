@@ -9,7 +9,6 @@ import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 
@@ -23,16 +22,20 @@ class LoadTrafficDashboard(
 
     /** Loads every product for [period]; any product failure fails the whole load. */
     suspend operator fun invoke(period: Period): TrafficDashboard = coroutineScope {
-        val window = period.windowEndingOn(LocalDate.now(clock), clock.zone)
+        // The clock is read once, so the window, the comparison and the chart describe the same moment
+        // even when the load runs across midnight.
+        val loadedAt = clock.instant()
+        val now = LocalDateTime.ofInstant(loadedAt, clock.zone)
+        val window = period.windowEndingOn(now.toLocalDate(), clock.zone)
         val gate = Semaphore(maxConcurrentRequests)
         val products = source.products()
         val traffic = products
             .map { product -> async { gate.withPermit { product to source.traffic(product, window) } } }
             .awaitAll()
         // Asked for only once the period itself has loaded, so a rate limit costs the comparison, not the dashboard.
-        val span = period.previousSpan(window, LocalDateTime.now(clock))
+        val span = period.previousSpan(window, now)
         val previous = products
-            .map { product -> async { gate.withPermit { product to previousVisitors(product, span) } } }
+            .map { product -> async { gate.withPermit { product to previousVisitors(product, span, loadedAt) } } }
             .awaitAll()
             .toMap()
 
@@ -46,10 +49,10 @@ class LoadTrafficDashboard(
             ranking = rank(traffic, total, previous),
             trend = mergeTrends(traffic.map { (_, productTraffic) -> productTraffic.trend })
                 // Providers return whole days; buckets that have not started would read as zero visits.
-                .filterNot { it.start.isAfter(LocalDateTime.now(clock)) }
+                .filterNot { it.start.isAfter(now) }
                 // Amounts in different currencies cannot be added into one bar.
                 .map { if (totalSales == null) it.copy(salesCents = 0) else it },
-            updatedAt = clock.instant(),
+            updatedAt = loadedAt,
         )
     }
 
@@ -58,9 +61,8 @@ class LoadTrafficDashboard(
      * a loaded one is reused while it is younger than 1% of the compared stretch (at most 30 minutes): a span
      * that only grew that much at its end stays within 1% of a fresh answer, at half the requests per refresh.
      */
-    private suspend fun previousVisitors(product: Product, span: TimeSpan): Long? {
+    private suspend fun previousVisitors(product: Product, span: TimeSpan, now: Instant): Long? {
         val key = product to span.start
-        val now = clock.instant()
         val reuseFor = minOf(Duration.between(span.start, span.end).dividedBy(100), MAX_COMPARISON_REUSE)
         comparisons[key]?.let { (visitors, loadedAt) ->
             if (Duration.between(loadedAt, now) < reuseFor) return visitors
