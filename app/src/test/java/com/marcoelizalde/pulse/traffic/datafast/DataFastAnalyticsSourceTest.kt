@@ -1,5 +1,7 @@
 package com.marcoelizalde.pulse.traffic.datafast
 
+import com.marcoelizalde.pulse.net.HttpResponse
+import com.marcoelizalde.pulse.net.HttpTransport
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product

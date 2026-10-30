@@ -1,6 +1,6 @@
 package com.marcoelizalde.pulse.traffic.logos
 
-import com.marcoelizalde.pulse.traffic.datafast.HttpTransport
+import com.marcoelizalde.pulse.net.HttpTransport
 
 /** Downloads images the TV can decode; anything else counts as "no logo". */
 class LogoDownloader(private val transport: HttpTransport) {

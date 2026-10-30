@@ -1,6 +1,6 @@
 package com.marcoelizalde.pulse.traffic.logos
 
-import com.marcoelizalde.pulse.traffic.datafast.HttpResponse
+import com.marcoelizalde.pulse.net.HttpResponse
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals

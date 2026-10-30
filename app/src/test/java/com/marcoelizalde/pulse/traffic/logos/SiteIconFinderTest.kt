@@ -1,7 +1,7 @@
 package com.marcoelizalde.pulse.traffic.logos
 
-import com.marcoelizalde.pulse.traffic.datafast.HttpResponse
-import com.marcoelizalde.pulse.traffic.datafast.HttpTransport
+import com.marcoelizalde.pulse.net.HttpResponse
+import com.marcoelizalde.pulse.net.HttpTransport
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

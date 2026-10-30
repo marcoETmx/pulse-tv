@@ -7,10 +7,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.marcoelizalde.pulse.net.UrlConnectionTransport
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardRoute
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardViewModel
 import com.marcoelizalde.pulse.traffic.datafast.DataFastAnalyticsSource
-import com.marcoelizalde.pulse.traffic.datafast.UrlConnectionTransport
 import com.marcoelizalde.pulse.traffic.demo.DemoAnalyticsSource
 import com.marcoelizalde.pulse.traffic.domain.LoadTrafficDashboard
 import com.marcoelizalde.pulse.traffic.logos.LogoCache

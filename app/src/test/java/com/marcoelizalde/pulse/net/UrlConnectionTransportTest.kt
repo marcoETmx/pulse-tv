@@ -1,4 +1,4 @@
-package com.marcoelizalde.pulse.traffic.datafast
+package com.marcoelizalde.pulse.net
 
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.test.runTest

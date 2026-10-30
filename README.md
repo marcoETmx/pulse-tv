@@ -135,9 +135,11 @@ The code is organized by capability (`traffic`), with ports and adapters inside 
 ```
 traffic/
   domain/      Periods, report windows, LoadTrafficDashboard, AnalyticsSource port
-  datafast/    DataFast REST adapter (account token, websiteId per request) + HTTP transport
+  datafast/    DataFast REST adapter (account token, websiteId per request) + rate limiter
   demo/        Deterministic demo source used when no token is set
+  logos/       Product logos: DataFast's, else the site's icon; cached on disk
   dashboard/   View model, display formats, and Compose for TV screen and components
+net/           HTTP transport shared by the DataFast adapter and the logo lookups
 ui/theme/      Colors, Space Grotesk typography, theme
 ```
 

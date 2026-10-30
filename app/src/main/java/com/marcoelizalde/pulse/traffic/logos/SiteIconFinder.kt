@@ -1,6 +1,6 @@
 package com.marcoelizalde.pulse.traffic.logos
 
-import com.marcoelizalde.pulse.traffic.datafast.HttpTransport
+import com.marcoelizalde.pulse.net.HttpTransport
 import java.net.URI
 
 /** Finds a product site's own icon by reading the `<link rel="…icon…">` tags of its home page. */

@@ -1,4 +1,4 @@
-package com.marcoelizalde.pulse.traffic.datafast
+package com.marcoelizalde.pulse.net
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
