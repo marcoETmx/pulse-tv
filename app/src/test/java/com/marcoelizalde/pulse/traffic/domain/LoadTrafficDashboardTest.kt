@@ -6,6 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -194,6 +195,67 @@ class LoadTrafficDashboardTest {
     }
 
     @Test
+    fun `the comparison is reused for up to thirty minutes`() = runTest {
+        val clock = MutableClock(now, zone)
+        val source = FakeAnalyticsSource(shop to ProductTraffic(50, emptyList()), previous = mapOf(shop to 40L))
+        val load = LoadTrafficDashboard(source, clock)
+
+        load(Period.LAST_7_DAYS)
+        clock.advance(Duration.ofMinutes(29))
+        val reused = load(Period.LAST_7_DAYS)
+
+        assertEquals(1, source.visitorsCalls)
+        assertEquals(listOf(40L), reused.ranking.map { it.previousVisitors })
+
+        clock.advance(Duration.ofMinutes(1))
+        load(Period.LAST_7_DAYS)
+
+        assertEquals(2, source.visitorsCalls)
+    }
+
+    @Test
+    fun `a short stretch reuses its comparison for at most one percent of its length`() = runTest {
+        // At 12:00, Today compares twelve hours, so the comparison is reused for 7.2 minutes.
+        val clock = MutableClock(now, zone)
+        val source = FakeAnalyticsSource(shop to ProductTraffic(50, emptyList()), previous = mapOf(shop to 40L))
+        val load = LoadTrafficDashboard(source, clock)
+
+        load(Period.TODAY)
+        clock.advance(Duration.ofMinutes(7))
+        load(Period.TODAY)
+
+        assertEquals(1, source.visitorsCalls)
+
+        clock.advance(Duration.ofMinutes(1))
+        load(Period.TODAY)
+
+        assertEquals(2, source.visitorsCalls)
+    }
+
+    @Test
+    fun `each period keeps its own comparison`() = runTest {
+        val source = FakeAnalyticsSource(shop to ProductTraffic(50, emptyList()), previous = mapOf(shop to 40L))
+        val load = LoadTrafficDashboard(source, clock)
+
+        load(Period.LAST_7_DAYS)
+        load(Period.LAST_30_DAYS)
+
+        assertEquals(2, source.visitorsCalls)
+        assertEquals(LocalDateTime.of(2026, 8, 25, 0, 0), source.requestedSpans.getValue(shop).start)
+    }
+
+    @Test
+    fun `a comparison that failed to load is asked again on the next load`() = runTest {
+        val source = FakeAnalyticsSource(shop to ProductTraffic(50, emptyList()))
+        val load = LoadTrafficDashboard(source, clock)
+
+        load(Period.LAST_7_DAYS)
+        load(Period.LAST_7_DAYS)
+
+        assertEquals(2, source.visitorsCalls)
+    }
+
+    @Test
     fun `dashboard is stamped with the load time`() = runTest {
         val source = FakeAnalyticsSource(shop to ProductTraffic(1, emptyList()))
 
@@ -222,6 +284,7 @@ class LoadTrafficDashboardTest {
         private val trafficByProduct = traffic.toMap()
         val requestedWindows = mutableMapOf<Product, ReportWindow>()
         val requestedSpans = mutableMapOf<Product, TimeSpan>()
+        var visitorsCalls = 0
 
         override suspend fun products(): List<Product> = trafficByProduct.keys.toList() + failing
 
@@ -232,8 +295,21 @@ class LoadTrafficDashboardTest {
         }
 
         override suspend fun visitors(product: Product, span: TimeSpan): Long {
+            visitorsCalls++
             requestedSpans[product] = span
             return previous[product] ?: error("no previous visitors")
         }
+    }
+
+    private class MutableClock(private var now: Instant, private val zone: ZoneId) : Clock() {
+        fun advance(duration: Duration) {
+            now += duration
+        }
+
+        override fun instant(): Instant = now
+
+        override fun getZone(): ZoneId = zone
+
+        override fun withZone(zone: ZoneId): Clock = MutableClock(now, zone)
     }
 }

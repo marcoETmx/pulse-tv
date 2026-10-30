@@ -8,6 +8,10 @@ import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.ReportWindow
 import com.marcoelizalde.pulse.traffic.domain.TimeSpan
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,6 +26,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class DataFastAnalyticsSourceTest {
@@ -286,6 +291,47 @@ class DataFastAnalyticsSourceTest {
 
         assertEquals("DataFast rate limit reached (60 requests per minute).", error.message)
         assertEquals(42.seconds, error.retryAfter)
+    }
+
+    @Test
+    fun `requests beyond the per-minute budget wait for the window instead of failing`() = runTest {
+        val sentAt = mutableListOf<Long>()
+        val transport = HttpTransport { _, _ ->
+            sentAt += testScheduler.currentTime
+            HttpResponse(200, """{"status":"success","data":[{"logo":null}]}""")
+        }
+        val source = DataFastAnalyticsSource(
+            "dft_secret",
+            transport,
+            rateLimiter = RateLimiter(maxRequests = 2, per = 1.minutes, timeSource = testScheduler.timeSource),
+        )
+
+        // Five at once, the way a dashboard load sends them.
+        (1..5).map { async { source.logoUrl(shop) } }.awaitAll()
+
+        assertEquals(listOf(0L, 0L, 60_000L, 60_000L, 120_000L), sentAt)
+    }
+
+    @Test
+    fun `a request cancelled while it waits for the budget gives its turn to the next one`() = runTest {
+        val sentAt = mutableListOf<Long>()
+        val transport = HttpTransport { _, _ ->
+            sentAt += testScheduler.currentTime
+            HttpResponse(200, """{"status":"success","data":[{"logo":null}]}""")
+        }
+        val source = DataFastAnalyticsSource(
+            "dft_secret",
+            transport,
+            rateLimiter = RateLimiter(maxRequests = 1, per = 1.minutes, timeSource = testScheduler.timeSource),
+        )
+
+        source.logoUrl(shop)
+        val abandoned = launch { source.logoUrl(shop) }
+        advanceTimeBy(10.seconds)
+        abandoned.cancel()
+        source.logoUrl(shop)
+
+        assertEquals(listOf(0L, 60_000L), sentAt)
     }
 
     @Test

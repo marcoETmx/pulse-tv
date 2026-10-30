@@ -25,14 +25,19 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.toKotlinDuration
 
-/** Reads every website of a DataFast account with a read-only `dft_` account token. */
+/**
+ * Reads every website of a DataFast account with a read-only `dft_` account token. Requests go through
+ * [rateLimiter]: DataFast allows 60 per minute, and the budget keeps 5 of them for network delays.
+ */
 class DataFastAnalyticsSource(
     private val token: String,
     private val transport: HttpTransport,
     private val baseUrl: String = "https://datafa.st/api/v1",
     private val clock: Clock = Clock.systemUTC(),
+    private val rateLimiter: RateLimiter = RateLimiter(maxRequests = 55, per = 1.minutes),
 ) : AnalyticsSource {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -107,6 +112,7 @@ class DataFastAnalyticsSource(
         path: String,
         query: List<Pair<String, String>> = emptyList(),
     ): T {
+        rateLimiter.acquire()
         val response = try {
             transport.get(url(path, query), mapOf("Authorization" to "Bearer $token", "Accept" to "application/json"))
         } catch (e: IOException) {

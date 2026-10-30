@@ -7,14 +7,20 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 
 class LoadTrafficDashboard(
     private val source: AnalyticsSource,
     private val clock: Clock,
     private val maxConcurrentRequests: Int = 4,
 ) {
+    /** Previous visitors by product and start of the compared stretch, with when they were loaded. */
+    private val comparisons = ConcurrentHashMap<Pair<Product, LocalDateTime>, Pair<Long, Instant>>()
+
     /** Loads every product for [period]; any product failure fails the whole load. */
     suspend operator fun invoke(period: Period): TrafficDashboard = coroutineScope {
         val window = period.windowEndingOn(LocalDate.now(clock), clock.zone)
@@ -47,13 +53,28 @@ class LoadTrafficDashboard(
         )
     }
 
-    /** The comparison is only a hint, so a product whose previous visitors fail to load goes without one. */
-    private suspend fun previousVisitors(product: Product, span: TimeSpan): Long? = try {
-        source.visitors(product, span)
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        null
+    /**
+     * The comparison is only a hint, so a product whose previous visitors fail to load goes without one, and
+     * a loaded one is reused while it is younger than 1% of the compared stretch (at most 30 minutes): a span
+     * that only grew that much at its end stays within 1% of a fresh answer, at half the requests per refresh.
+     */
+    private suspend fun previousVisitors(product: Product, span: TimeSpan): Long? {
+        val key = product to span.start
+        val now = clock.instant()
+        val reuseFor = minOf(Duration.between(span.start, span.end).dividedBy(100), MAX_COMPARISON_REUSE)
+        comparisons[key]?.let { (visitors, loadedAt) ->
+            if (Duration.between(loadedAt, now) < reuseFor) return visitors
+        }
+        val visitors = try {
+            source.visitors(product, span)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return null
+        }
+        comparisons.values.removeIf { (_, loadedAt) -> Duration.between(loadedAt, now) >= MAX_COMPARISON_REUSE }
+        comparisons[key] = visitors to now
+        return visitors
     }
 
     private fun rank(
@@ -83,4 +104,8 @@ class LoadTrafficDashboard(
             .groupBy { it.start }
             .map { (start, points) -> TrafficPoint(start, points.sumOf { it.visitors }, points.sumOf { it.salesCents }) }
             .sortedBy { it.start }
+
+    private companion object {
+        val MAX_COMPARISON_REUSE: Duration = Duration.ofMinutes(30)
+    }
 }

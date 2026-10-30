@@ -65,12 +65,18 @@ and keeps the TV awake while it is open.
 
 ### DataFast rate limit
 
-DataFast allows 60 API requests per minute per token. A dashboard load costs two requests per
-website, one for the period and one for the previous period (the website list is reused for an
-hour). A period you opened less than 5 minutes ago is shown again without calling DataFast, and
-after a `429` the app waits until DataFast's reset time before retrying, keeping the last data on
-screen. The previous period is asked for last, so if the limit runs out there, the ranking just
-shows no arrows.
+DataFast allows 60 API requests per minute per token. Pulse sends at most 55 in any minute, leaving
+room for network delays; requests beyond that wait their turn, so flipping through several periods
+makes the last one load more slowly instead of failing.
+
+A dashboard load costs one request per website for the period and one for the previous period. The
+previous period is reused for up to 30 minutes (less on short stretches like **Today**, so it stays
+within 1% of a fresh comparison), and the website list for an hour. A period you opened less than 5
+minutes ago is shown again without calling DataFast.
+
+If DataFast still answers `429` (for example, because something else uses the same token), the app
+waits until DataFast's reset time before retrying, keeping the last data on screen. The previous
+period is asked for last, so if the limit runs out there, the ranking just shows no arrows.
 
 ## Periods
 
