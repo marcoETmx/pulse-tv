@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.datafast
 import com.marcoelizalde.pulse.net.HttpResponse
 import com.marcoelizalde.pulse.net.HttpTransport
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsSource
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product
@@ -127,9 +128,9 @@ class DataFastAnalyticsSource(
         val envelope = try {
             json.decodeFromString<T>(response.body)
         } catch (e: SerializationException) {
-            throw AnalyticsException(UNEXPECTED_RESPONSE, e)
+            throw AnalyticsException(AnalyticsProblem.UnexpectedResponse, e)
         } catch (e: IllegalArgumentException) {
-            throw AnalyticsException(UNEXPECTED_RESPONSE, e)
+            throw AnalyticsException(AnalyticsProblem.UnexpectedResponse, e)
         }
         if (envelope.status == "error") throw errorFor(response)
         return envelope
@@ -155,24 +156,24 @@ class DataFastAnalyticsSource(
         return try {
             transport.get(url, headers)
         } catch (e: IOException) {
-            throw AnalyticsException("Can't reach DataFast. Check the TV's internet connection.", e)
+            throw AnalyticsException(AnalyticsProblem.Unreachable, e)
         }
     }
 
     private fun errorFor(response: HttpResponse): AnalyticsException = when (response.status) {
-        401 -> AnalyticsException("DataFast rejected the token (401). Check DATAFAST_TOKEN in local.properties.")
-        403 -> AnalyticsException("The DataFast token needs the analytics:read and websites:read permissions (403).")
+        401 -> AnalyticsException(AnalyticsProblem.TokenRejected)
+        403 -> AnalyticsException(AnalyticsProblem.MissingPermissions)
         429 -> {
             val limit = runCatching { json.decodeFromString<RateLimitDto>(response.body) }.getOrNull()
             // Capped, so a reset that is misread or far off never stops refreshing for good.
             val retryAfter = limit?.reset?.let { reset ->
                 Duration.between(clock.instant(), resetInstant(reset)).toKotlinDuration().coerceIn(ZERO, MAX_RATE_LIMIT_WAIT)
             }
-            AnalyticsException("DataFast rate limit reached (${limit?.limit ?: 60} requests per minute).", retryAfter = retryAfter)
+            AnalyticsException(AnalyticsProblem.RateLimited(limit?.limit ?: 60), retryAfter = retryAfter)
         }
         else -> {
             val detail = runCatching { json.decodeFromString<ErrorEnvelope>(response.body).error?.message }.getOrNull()
-            AnalyticsException("DataFast error ${response.status}" + detail?.let { ": $it" }.orEmpty())
+            AnalyticsException(AnalyticsProblem.ProviderError(response.status, detail))
         }
     }
 
@@ -184,7 +185,6 @@ class DataFastAnalyticsSource(
     private fun encode(value: String): String = URLEncoder.encode(value, "UTF-8")
 
     private companion object {
-        const val UNEXPECTED_RESPONSE = "DataFast sent an unexpected response."
         val PRODUCTS_TTL: Duration = Duration.ofHours(1)
         val RETRY_DELAYS = listOf(1.seconds, 3.seconds)
 
@@ -208,7 +208,7 @@ private fun parseBucketStart(timestamp: String): LocalDateTime =
     runCatching { OffsetDateTime.parse(timestamp).toLocalDateTime() }
         .recoverCatching { LocalDateTime.parse(timestamp) }
         .recoverCatching { LocalDate.parse(timestamp).atStartOfDay() }
-        .getOrElse { throw AnalyticsException("DataFast sent an unexpected response.", it) }
+        .getOrElse { throw AnalyticsException(AnalyticsProblem.UnexpectedResponse, it) }
 
 /** A rate limit's reset, read as milliseconds when it is too large to be seconds (past the year 5000). */
 private fun resetInstant(reset: Long): Instant =

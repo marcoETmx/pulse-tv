@@ -1,7 +1,9 @@
 package com.marcoelizalde.pulse.traffic.dashboard
 
 import androidx.lifecycle.viewModelScope
+import com.marcoelizalde.pulse.traffic.dashboard.i18n.AppLanguage
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Period
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.RankedProduct
@@ -108,7 +110,7 @@ class DashboardViewModelTest {
     fun `a failed first load shows the error and refreshing now loads again`() = runTest(dispatcher) {
         var fail = true
         withViewModel({ period ->
-            if (fail) throw AnalyticsException("DataFast rejected the token (401).")
+            if (fail) throw AnalyticsException(AnalyticsProblem.TokenRejected)
             dashboardFor(period)
         }) { viewModel ->
             runCurrent()
@@ -116,7 +118,7 @@ class DashboardViewModelTest {
             with(viewModel.state.value) {
                 assertNull(dashboard)
                 assertFalse(isLoading)
-                assertEquals("DataFast rejected the token (401).", error)
+                assertEquals(AnalyticsProblem.TokenRejected, error)
             }
 
             fail = false
@@ -133,7 +135,7 @@ class DashboardViewModelTest {
     @Test
     fun `a failed refresh keeps the last data on screen`() = runTest(dispatcher) {
         withViewModel({ period ->
-            if (calls.size > 1) throw AnalyticsException("DataFast error 500")
+            if (calls.size > 1) throw AnalyticsException(AnalyticsProblem.ProviderError(500, detail = null))
             dashboardFor(period)
         }) { viewModel ->
             runCurrent()
@@ -144,7 +146,7 @@ class DashboardViewModelTest {
             with(viewModel.state.value) {
                 assertEquals(dashboardFor(Period.LAST_7_DAYS), dashboard)
                 assertFalse(isLoading)
-                assertEquals("DataFast error 500", error)
+                assertEquals(AnalyticsProblem.ProviderError(500, detail = null), error)
             }
         }
     }
@@ -152,7 +154,7 @@ class DashboardViewModelTest {
     @Test
     fun `retries thirty seconds after a failure`() = runTest(dispatcher) {
         withViewModel({ period ->
-            if (calls.size == 1) throw AnalyticsException("DataFast error 503")
+            if (calls.size == 1) throw AnalyticsException(AnalyticsProblem.ProviderError(503, detail = null))
             dashboardFor(period)
         }) { viewModel ->
             runCurrent()
@@ -189,7 +191,7 @@ class DashboardViewModelTest {
     @Test
     fun `a rate limit waits until DataFast accepts requests again`() = runTest(dispatcher) {
         withViewModel({ period ->
-            if (calls.size == 1) throw AnalyticsException("DataFast rate limit reached (60 requests per minute).", retryAfter = 50.seconds)
+            if (calls.size == 1) throw AnalyticsException(AnalyticsProblem.RateLimited(requestsPerMinute = 60), retryAfter = 50.seconds)
             dashboardFor(period)
         }) { viewModel ->
             runCurrent()
@@ -305,7 +307,7 @@ class DashboardViewModelTest {
     fun `a failing logo never breaks the dashboard`() = runTest(dispatcher) {
         withViewModel(
             load = { dashboardFor(it, ranking = listOf(ranked(shop))) },
-            loadLogo = { throw AnalyticsException("DataFast rate limit reached (60 requests per minute).") },
+            loadLogo = { throw AnalyticsException(AnalyticsProblem.RateLimited(requestsPerMinute = 60)) },
         ) { viewModel ->
             runCurrent()
 
@@ -318,11 +320,11 @@ class DashboardViewModelTest {
     }
 
     @Test
-    fun `unexpected failures show a generic message`() = runTest(dispatcher) {
+    fun `unexpected failures show a generic problem`() = runTest(dispatcher) {
         withViewModel({ error("NullPointer somewhere") }) { viewModel ->
             runCurrent()
 
-            assertEquals("Something went wrong loading the dashboard.", viewModel.state.value.error)
+            assertEquals(AnalyticsProblem.Unknown, viewModel.state.value.error)
         }
     }
 
@@ -441,6 +443,28 @@ class DashboardViewModelTest {
         }
     }
 
+    @Test
+    fun `a saved language is used from the start`() = runTest(dispatcher) {
+        withViewModel({ dashboardFor(it) }, languages = Saved(AppLanguage.SPANISH)) { viewModel ->
+            assertEquals(AppLanguage.SPANISH, viewModel.state.value.language)
+        }
+    }
+
+    @Test
+    fun `choosing a language saves it without calling DataFast`() = runTest(dispatcher) {
+        val store = Saved<AppLanguage>()
+        withViewModel({ dashboardFor(it) }, languages = store) { viewModel ->
+            runCurrent()
+            assertEquals(AppLanguage.SYSTEM, viewModel.state.value.language)
+
+            viewModel.setLanguage(AppLanguage.SPANISH)
+
+            assertEquals(AppLanguage.SPANISH, store.saved)
+            assertEquals(AppLanguage.SPANISH, viewModel.state.value.language)
+            assertEquals(1, calls.size)
+        }
+    }
+
     private val shop = Product("1", "Shop", "shop.example")
     private val blog = Product("2", "Blog", "blog.example")
 
@@ -459,6 +483,7 @@ class DashboardViewModelTest {
         noinline loadLogo: suspend (Product) -> ByteArray? = { null },
         refreshIntervals: SettingStore<RefreshInterval> = Saved(),
         rankingOrders: SettingStore<RankingOrder> = Saved(),
+        languages: SettingStore<AppLanguage> = Saved(),
         block: TestScope.(DashboardViewModel) -> Unit,
     ) {
         val viewModel = DashboardViewModel(
@@ -470,6 +495,7 @@ class DashboardViewModelTest {
             loadLogo = loadLogo,
             refreshIntervals = refreshIntervals,
             rankingOrders = rankingOrders,
+            languages = languages,
             timeSource = testScheduler.timeSource,
         )
         try {

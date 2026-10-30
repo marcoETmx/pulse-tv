@@ -28,11 +28,9 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.DashboardUiState
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @Composable
 fun LoadingPanel(modifier: Modifier = Modifier) {
@@ -50,12 +48,13 @@ fun LoadingPanel(modifier: Modifier = Modifier) {
     ) {
         PulseGlyph(Modifier.size(width = 96.dp, height = 68.dp), alpha = alpha)
         Spacer(Modifier.height(18.dp))
-        Text("Connecting to DataFast…", style = PulseType.title, color = PulseColors.TextSecondary)
+        Text(LocalFormats.current.strings.connecting, style = PulseType.title, color = PulseColors.TextSecondary)
     }
 }
 
 @Composable
 fun ErrorPanel(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val strings = LocalFormats.current.strings
     Column(
         modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -63,7 +62,7 @@ fun ErrorPanel(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
     ) {
         WarningGlyph(Modifier.size(44.dp))
         Spacer(Modifier.height(18.dp))
-        Text("Couldn't load DataFast", style = PulseType.title.copy(fontSize = 28.sp, lineHeight = 34.sp))
+        Text(strings.loadFailedTitle, style = PulseType.title.copy(fontSize = 28.sp, lineHeight = 34.sp))
         Spacer(Modifier.height(8.dp))
         Text(
             message,
@@ -75,7 +74,7 @@ fun ErrorPanel(message: String, onRetry: () -> Unit, modifier: Modifier = Modifi
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(26.dp))
-        Button(onClick = onRetry) { Text("Try again", style = PulseType.pill) }
+        Button(onClick = onRetry) { Text(strings.tryAgain, style = PulseType.pill) }
     }
 }
 
@@ -89,7 +88,7 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
             DemoBadge()
         } else {
             Text(
-                statusLine(state),
+                statusLine(state, LocalFormats.current),
                 modifier = Modifier.weight(1f),
                 style = PulseType.caption,
                 color = if (refreshFailed) PulseColors.TextPrimary else PulseColors.TextSecondary,
@@ -107,19 +106,19 @@ fun StatusBar(state: DashboardUiState, modifier: Modifier = Modifier) {
  */
 internal fun showsDemoBadge(state: DashboardUiState): Boolean = state.isDemo && isUpToDate(state)
 
-internal fun statusLine(state: DashboardUiState): String {
+internal fun statusLine(state: DashboardUiState, formats: Formats): String {
+    val strings = formats.strings
     val dashboard = state.dashboard
     return when {
-        dashboard == null && state.error != null -> "Couldn't load data"
-        dashboard == null -> "Connecting to DataFast…"
-        isUpToDate(state) -> "Updated ${UpdatedAt.format(dashboard.updatedAt)}"
-        state.isLoading && state.isShowingStalePeriod -> "Loading ${Formats.period(state.selectedPeriod).lowercase()}…"
+        dashboard == null && state.error != null -> strings.noData
+        dashboard == null -> strings.connecting
+        isUpToDate(state) -> strings.updated(formats.time(dashboard.updatedAt))
+        state.isLoading && state.isShowingStalePeriod -> strings.loadingPeriod(state.selectedPeriod)
         state.error != null && state.isShowingStalePeriod ->
-            "Couldn't load ${Formats.period(state.selectedPeriod).lowercase()}: ${state.error} · " +
-                "showing ${Formats.period(dashboard.period).lowercase()} from ${UpdatedAt.format(dashboard.updatedAt)}"
-        state.error != null -> "Couldn't refresh: ${state.error} · showing data from ${UpdatedAt.format(dashboard.updatedAt)}"
+            strings.periodFailed(state.selectedPeriod, strings.problem(state.error), dashboard.period, formats.time(dashboard.updatedAt))
+        state.error != null -> strings.refreshFailed(strings.problem(state.error), formats.time(dashboard.updatedAt))
         // Neither up to date nor failed, so the period on screen is reloading.
-        else -> "Refreshing…"
+        else -> strings.refreshing
     }
 }
 
@@ -127,4 +126,3 @@ internal fun statusLine(state: DashboardUiState): String {
 private fun isUpToDate(state: DashboardUiState): Boolean =
     state.dashboard != null && !state.isLoading && state.error == null
 
-internal val UpdatedAt: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.US).withZone(ZoneId.systemDefault())

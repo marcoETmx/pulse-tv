@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
-import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.traffic.domain.Sales
 import com.marcoelizalde.pulse.traffic.domain.TrafficDashboard
 import com.marcoelizalde.pulse.ui.theme.PulseColors
@@ -35,7 +35,7 @@ fun VisitorsCard(dashboard: TrafficDashboard, modifier: Modifier = Modifier) {
         Column(Modifier.fillMaxSize().padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
-                    Overline("Visitors")
+                    Overline(LocalFormats.current.strings.visitors)
                     AnimatedCount(dashboard.totalVisitors, PulseType.hero)
                 }
                 SalesFigure(dashboard.totalSales)
@@ -53,17 +53,18 @@ fun VisitorsCard(dashboard: TrafficDashboard, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SalesFigure(sales: Sales?) {
+    val formats = LocalFormats.current
     Column(horizontalAlignment = Alignment.End) {
-        Overline("Sales")
+        Overline(formats.strings.sales)
         Spacer(Modifier.height(10.dp))
         Text(
-            if (sales == null) "—" else Formats.money(sales.cents, sales.currency),
+            if (sales == null) "—" else formats.money(sales.cents, sales.currency),
             style = PulseType.figure,
             color = PulseColors.Sales,
             maxLines = 1,
         )
         Text(
-            if (sales == null) "Mixed currencies" else Formats.payments(sales.payments),
+            if (sales == null) formats.strings.mixedCurrencies else formats.payments(sales.payments),
             style = PulseType.caption,
             color = PulseColors.TextSecondary,
         )
@@ -80,5 +81,5 @@ private fun AnimatedCount(target: Long, style: TextStyle) {
             shown = from + ((target - from) * fraction).roundToLong()
         }
     }
-    Text(Formats.grouped(shown), style = style)
+    Text(LocalFormats.current.grouped(shown), style = style)
 }

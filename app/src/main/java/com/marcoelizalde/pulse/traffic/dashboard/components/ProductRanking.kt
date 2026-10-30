@@ -48,7 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.Change
-import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.traffic.dashboard.RankingOrder
 import com.marcoelizalde.pulse.traffic.dashboard.RankingRow
 import com.marcoelizalde.pulse.traffic.dashboard.rankingRows
@@ -75,6 +75,7 @@ fun ProductRanking(
     order: RankingOrder,
     modifier: Modifier = Modifier,
 ) {
+    val formats = LocalFormats.current
     val rows = remember(ranking, order) { rankingRows(ranking, order) }
     // The bars measure what the ranking is ordered by, in that measure's color, as in the chart.
     val barColor = if (order == RankingOrder.SALES) PulseColors.SalesSeries else PulseColors.Series
@@ -86,20 +87,20 @@ fun ProductRanking(
     PulseCard(modifier) {
         Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 20.dp)) {
             Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Overline(Formats.rankingTitle(order))
+                Overline(formats.strings.rankingTitle(order))
                 Spacer(Modifier.weight(1f))
-                val range = Formats.rankingRange(firstVisible, VISIBLE_ROWS, rows.size)
+                val range = formats.rankingRange(firstVisible, VISIBLE_ROWS, rows.size)
                 val hint = when {
                     rows.size <= VISIBLE_ROWS -> ""
-                    browsing -> "  ·  ▲▼ to scroll"
-                    else -> "  ·  ▶ to browse"
+                    browsing -> "  ·  ${formats.strings.rankingScrollHint}"
+                    else -> "  ·  ${formats.strings.rankingBrowseHint}"
                 }
                 Text(range + hint, style = PulseType.caption, color = PulseColors.TextMuted)
             }
             Spacer(Modifier.height(16.dp))
             if (rows.isEmpty()) {
                 Text(
-                    "No websites in this DataFast account yet.",
+                    formats.strings.noWebsites,
                     modifier = Modifier.padding(horizontal = 10.dp),
                     style = PulseType.body,
                     color = PulseColors.TextSecondary,
@@ -168,6 +169,7 @@ private fun RankingLine(
     order: Int,
     modifier: Modifier = Modifier,
 ) {
+    val formats = LocalFormats.current
     var focused by remember { mutableStateOf(false) }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(fraction) {
@@ -213,7 +215,7 @@ private fun RankingLine(
                 )
                 row.sales?.let { sales ->
                     Text(
-                        Formats.money(sales.cents, sales.currency),
+                        formats.money(sales.cents, sales.currency),
                         modifier = Modifier.padding(start = 8.dp).alignByBaseline(),
                         style = PulseType.rowName,
                         color = PulseColors.Sales,
@@ -251,9 +253,9 @@ private fun RankingLine(
                         color = if (change == Change.UP) PulseColors.Up else PulseColors.Down,
                     )
                 }
-                Text(Formats.grouped(row.visitors), modifier = Modifier.alignByBaseline(), style = PulseType.rowValue, maxLines = 1)
+                Text(formats.grouped(row.visitors), modifier = Modifier.alignByBaseline(), style = PulseType.rowValue, maxLines = 1)
             }
-            Text(Formats.share(row.share), style = PulseType.caption, color = PulseColors.TextMuted)
+            Text(formats.share(row.share), style = PulseType.caption, color = PulseColors.TextMuted)
         }
     }
 }

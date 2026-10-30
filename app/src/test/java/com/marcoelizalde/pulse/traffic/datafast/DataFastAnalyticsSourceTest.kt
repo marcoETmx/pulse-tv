@@ -3,6 +3,7 @@ package com.marcoelizalde.pulse.traffic.datafast
 import com.marcoelizalde.pulse.net.HttpResponse
 import com.marcoelizalde.pulse.net.HttpTransport
 import com.marcoelizalde.pulse.traffic.domain.AnalyticsException
+import com.marcoelizalde.pulse.traffic.domain.AnalyticsProblem
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.Product
 import com.marcoelizalde.pulse.traffic.domain.ProductTraffic
@@ -220,22 +221,19 @@ class DataFastAnalyticsSourceTest {
         val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
 
         assertTrue(error is AnalyticsException)
-        assertEquals("DataFast error 400: Invalid date range", error?.message)
+        assertEquals(AnalyticsProblem.ProviderError(400, "Invalid date range"), (error as AnalyticsException).problem)
     }
 
     @Test
-    fun `a rejected token explains how to fix it`() = runTest {
-        val messages = listOf(401, 403).associateWith { status ->
+    fun `a rejected token is told apart from missing permissions`() = runTest {
+        val problems = listOf(401, 403).associateWith { status ->
             val transport = FakeTransport("/admin/websites" to HttpResponse(status, """{"status":"error"}"""))
-            runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()?.message
+            (runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull() as? AnalyticsException)?.problem
         }
 
         assertEquals(
-            mapOf(
-                401 to "DataFast rejected the token (401). Check DATAFAST_TOKEN in local.properties.",
-                403 to "The DataFast token needs the analytics:read and websites:read permissions (403).",
-            ),
-            messages,
+            mapOf(401 to AnalyticsProblem.TokenRejected, 403 to AnalyticsProblem.MissingPermissions),
+            problems,
         )
     }
 
@@ -291,7 +289,7 @@ class DataFastAnalyticsSourceTest {
             DataFastAnalyticsSource("dft_secret", transport, clock = MutableClock(now)).products()
         }.exceptionOrNull() as AnalyticsException
 
-        assertEquals("DataFast rate limit reached (60 requests per minute).", error.message)
+        assertEquals(AnalyticsProblem.RateLimited(requestsPerMinute = 60), error.problem)
         assertEquals(42.seconds, error.retryAfter)
     }
 
@@ -434,7 +432,7 @@ class DataFastAnalyticsSourceTest {
 
         val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
 
-        assertEquals("DataFast error 502: Bad gateway", error?.message)
+        assertEquals(AnalyticsProblem.ProviderError(502, "Bad gateway"), (error as? AnalyticsException)?.problem)
         assertEquals(3, calls)
     }
 
@@ -485,7 +483,7 @@ class DataFastAnalyticsSourceTest {
         val error = runCatching { DataFastAnalyticsSource("dft_secret", transport).products() }.exceptionOrNull()
 
         assertTrue(error is AnalyticsException)
-        assertEquals("Can't reach DataFast. Check the TV's internet connection.", error?.message)
+        assertEquals(AnalyticsProblem.Unreachable, (error as AnalyticsException).problem)
     }
 
     private data class Request(val url: String, val headers: Map<String, String>) {

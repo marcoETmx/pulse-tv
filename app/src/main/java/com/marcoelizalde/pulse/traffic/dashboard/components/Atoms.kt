@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
 
@@ -124,6 +125,6 @@ fun DemoBadge(modifier: Modifier = Modifier) {
             .border(1.dp, PulseColors.BrandViolet.copy(alpha = 0.5f), shape)
             .padding(horizontal = 14.dp, vertical = 5.dp),
     ) {
-        Text("DEMO DATA", style = PulseType.caption)
+        Text(LocalFormats.current.strings.demoBadge, style = PulseType.caption)
     }
 }

@@ -47,6 +47,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.Formats
+import com.marcoelizalde.pulse.traffic.dashboard.LocalFormats
 import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import com.marcoelizalde.pulse.ui.theme.PulseColors
@@ -59,6 +60,7 @@ import java.time.LocalDateTime
  */
 @Composable
 fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurrency: String?, modifier: Modifier = Modifier) {
+    val formats = LocalFormats.current
     val textMeasurer = rememberTextMeasurer()
     var focused by remember { mutableStateOf(false) }
     // The cursor follows its bucket, not its position, so a refresh leaves it in place; a new period starts at the end.
@@ -77,10 +79,10 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurren
     Column(modifier) {
         // The legend names the measures; color alone must not tell them apart.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            LegendItem("Visitors") { drawLine(PulseColors.Series, Offset(0f, center.y), Offset(size.width, center.y), 2.dp.toPx(), StrokeCap.Round) }
+            LegendItem(formats.strings.visitors) { drawLine(PulseColors.Series, Offset(0f, center.y), Offset(size.width, center.y), 2.dp.toPx(), StrokeCap.Round) }
             if (sales != null) {
                 Spacer(Modifier.width(16.dp))
-                LegendItem("Sales") {
+                LegendItem(formats.strings.sales) {
                     val barWidth = 8.dp.toPx()
                     drawRoundRect(
                         PulseColors.SalesSeries,
@@ -92,7 +94,7 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurren
             }
             Spacer(Modifier.weight(1f))
             Text(
-                if (focused) "◀ ▶ move through time" else "Press ▼ to explore",
+                if (focused) formats.strings.chartHintExploring else formats.strings.chartHint,
                 style = PulseType.caption,
                 color = PulseColors.TextMuted,
             )
@@ -114,7 +116,7 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurren
                 .focusable(enabled = points.isNotEmpty()),
         ) {
             Canvas(Modifier.fillMaxSize()) {
-                drawTrend(points, granularity, ticks, sales, if (focused) cursor else null, reveal.value, textMeasurer)
+                drawTrend(points, granularity, ticks, sales, if (focused) cursor else null, reveal.value, textMeasurer, formats)
             }
         }
     }
@@ -144,11 +146,12 @@ private fun DrawScope.drawTrend(
     cursor: Int?,
     reveal: Float,
     textMeasurer: TextMeasurer,
+    formats: Formats,
 ) {
     val axisStyle = PulseType.caption.copy(color = PulseColors.TextMuted)
     val labelGap = 8.dp.toPx()
-    val visitorLabels = ticks.map { textMeasurer.measure(Formats.compact(it), axisStyle) }
-    val salesLabels = sales?.ticks?.map { textMeasurer.measure(Formats.moneyCompact(it, sales.currency), axisStyle) }
+    val visitorLabels = ticks.map { textMeasurer.measure(formats.compact(it), axisStyle) }
+    val salesLabels = sales?.ticks?.map { textMeasurer.measure(formats.moneyCompact(it, sales.currency), axisStyle) }
     // Gutters fit the labels, so the axis labels line up with the card's text edges.
     val plot = Rect(
         left = visitorLabels.maxOf { it.size.width } + labelGap,
@@ -188,13 +191,13 @@ private fun DrawScope.drawTrend(
     }
 
     if (points.isEmpty()) {
-        val empty = textMeasurer.measure("No visits recorded in this period", PulseType.body.copy(color = PulseColors.TextSecondary))
+        val empty = textMeasurer.measure(formats.strings.chartEmpty, PulseType.body.copy(color = PulseColors.TextSecondary))
         drawText(empty, topLeft = plot.center - Offset(empty.size.width / 2f, empty.size.height / 2f))
         return
     }
 
     xTickIndices(points.size).forEach { index ->
-        val label = textMeasurer.measure(Formats.bucketTick(points[index].start, granularity), axisStyle)
+        val label = textMeasurer.measure(formats.bucketTick(points[index].start, granularity), axisStyle)
         val left = (x(index) - label.size.width / 2f).coerceIn(plot.left - 8.dp.toPx(), size.width - label.size.width)
         drawText(label, topLeft = Offset(left, plot.bottom + 8.dp.toPx()))
     }
@@ -238,9 +241,9 @@ private fun DrawScope.drawTrend(
     // Values show only while exploring with the cursor.
     if (cursor != null) {
         drawTooltip(
-            detail = Formats.bucketDetail(points[index].start, granularity),
-            value = "${Formats.grouped(points[index].visitors)} visitors",
-            extra = sales?.let { "${Formats.money(points[index].salesCents, it.currency)} in sales" },
+            detail = formats.bucketDetail(points[index].start, granularity),
+            value = formats.strings.visitorCount(points[index].visitors, formats.grouped(points[index].visitors)),
+            extra = sales?.let { formats.strings.salesAmount(formats.money(points[index].salesCents, it.currency)) },
             marker = marker,
             plot = plot,
             textMeasurer = textMeasurer,
