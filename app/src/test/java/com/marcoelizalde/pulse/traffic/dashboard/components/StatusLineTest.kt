@@ -48,6 +48,20 @@ class StatusLineTest {
     }
 
     @Test
+    fun `a period still loading names it while another one is on screen`() {
+        val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = true, error = null)
+
+        assertEquals("Loading 30 days…", statusLine(state))
+    }
+
+    @Test
+    fun `a first load that failed says there is no data`() {
+        val state = DashboardUiState(Period.TODAY, dashboard = null, isLoading = false, error = "DataFast error 500")
+
+        assertEquals("Couldn't load data", statusLine(state))
+    }
+
+    @Test
     fun `demo data shows the demo badge instead of the update time`() {
         val state = DashboardUiState(Period.TODAY, dashboard, isLoading = false, error = null, isDemo = true)
 
