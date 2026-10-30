@@ -28,6 +28,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -125,13 +126,16 @@ private fun RankingList(
         verticalArrangement = Arrangement.spacedBy(RowGap),
     ) {
         rows.forEachIndexed { index, row ->
-            RankingLine(
-                row,
-                logo = logos[row.productId],
-                fraction = row.visitors.toFloat() / maxVisitors,
-                order = index,
-                modifier = if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier,
-            )
+            // Keyed by product, so focus and the bar animation follow a product when a refresh reorders the list.
+            key(row.productId) {
+                RankingLine(
+                    row,
+                    logo = logos[row.productId],
+                    fraction = row.visitors.toFloat() / maxVisitors,
+                    order = index,
+                    modifier = if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier,
+                )
+            }
         }
     }
 }

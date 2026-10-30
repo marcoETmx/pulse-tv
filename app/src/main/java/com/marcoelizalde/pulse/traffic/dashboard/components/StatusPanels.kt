@@ -107,6 +107,9 @@ internal fun statusLine(state: DashboardUiState): String {
         dashboard == null && state.error != null -> "Couldn't load data"
         dashboard == null -> "Connecting to DataFast…"
         state.isLoading && state.isShowingStalePeriod -> "Loading ${Formats.period(state.selectedPeriod).lowercase()}…"
+        state.error != null && state.isShowingStalePeriod ->
+            "Couldn't load ${Formats.period(state.selectedPeriod).lowercase()}: ${state.error} · " +
+                "showing ${Formats.period(dashboard.period).lowercase()} from ${UpdatedAt.format(dashboard.updatedAt)}"
         state.error != null -> "Couldn't refresh: ${state.error} · showing data from ${UpdatedAt.format(dashboard.updatedAt)}"
         state.isLoading -> "Refreshing…"
         else -> "Updated ${UpdatedAt.format(dashboard.updatedAt)}"

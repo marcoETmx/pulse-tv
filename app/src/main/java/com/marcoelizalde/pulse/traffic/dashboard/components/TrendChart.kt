@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +51,7 @@ import com.marcoelizalde.pulse.traffic.domain.Granularity
 import com.marcoelizalde.pulse.traffic.domain.TrafficPoint
 import com.marcoelizalde.pulse.ui.theme.PulseColors
 import com.marcoelizalde.pulse.ui.theme.PulseType
+import java.time.LocalDateTime
 
 /**
  * Visitors as an area chart, with sales as bars on a money axis on the right when the period has any.
@@ -61,7 +61,9 @@ import com.marcoelizalde.pulse.ui.theme.PulseType
 fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurrency: String?, modifier: Modifier = Modifier) {
     val textMeasurer = rememberTextMeasurer()
     var focused by remember { mutableStateOf(false) }
-    var cursor by remember(points) { mutableIntStateOf(points.lastIndex) }
+    // The cursor follows its bucket, not its position, so a refresh leaves it in place; a new period starts at the end.
+    var cursorStart by remember(granularity, points.firstOrNull()?.start) { mutableStateOf<LocalDateTime?>(null) }
+    val cursor = cursorIndex(points, cursorStart)
     val reveal = remember(points) { Animatable(0f) }
     LaunchedEffect(points) { reveal.animateTo(1f, tween(900, easing = FastOutSlowInEasing)) }
     val ticks = remember(points) { Formats.axisTicks(points.maxOfOrNull { it.visitors } ?: 0) }
@@ -104,8 +106,8 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurren
                 .onKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                     when (event.key) {
-                        Key.DirectionLeft -> (cursor > 0).also { if (it) cursor-- }
-                        Key.DirectionRight -> (cursor < points.lastIndex).also { if (it) cursor++ }
+                        Key.DirectionLeft -> (cursor > 0).also { if (it) cursorStart = points[cursor - 1].start }
+                        Key.DirectionRight -> (cursor < points.lastIndex).also { if (it) cursorStart = points[cursor + 1].start }
                         else -> false
                     }
                 }
@@ -117,6 +119,10 @@ fun TrendChart(points: List<TrafficPoint>, granularity: Granularity, salesCurren
         }
     }
 }
+
+/** Where the cursor sits: on the bucket starting at [cursorStart], or on the last one when it is unset or gone. */
+internal fun cursorIndex(points: List<TrafficPoint>, cursorStart: LocalDateTime?): Int =
+    points.indexOfFirst { it.start == cursorStart }.takeIf { it >= 0 } ?: points.lastIndex
 
 /** Right-hand money axis: tick values in whole currency units, aligned with the visitor gridlines. */
 private class SalesAxis(val ticks: List<Long>, val currency: String?)

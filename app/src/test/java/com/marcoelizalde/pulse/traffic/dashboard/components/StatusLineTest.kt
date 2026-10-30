@@ -37,4 +37,11 @@ class StatusLineTest {
 
         assertEquals("Couldn't refresh: DataFast error 500 · showing data from $time", statusLine(state))
     }
+
+    @Test
+    fun `a period that failed to load names it and the period still on screen`() {
+        val state = DashboardUiState(Period.LAST_30_DAYS, dashboard, isLoading = false, error = "DataFast error 500")
+
+        assertEquals("Couldn't load 30 days: DataFast error 500 · showing today from $time", statusLine(state))
+    }
 }
