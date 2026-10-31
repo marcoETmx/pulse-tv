@@ -101,7 +101,7 @@ fun ProductRanking(
             Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Overline(formats.strings.rankingTitle(order))
                 // The width the title leaves, measured so the header stays on one line in every language.
-                BoxWithConstraints(Modifier.weight(1f).padding(start = 16.dp), contentAlignment = Alignment.CenterEnd) {
+                BoxWithConstraints(Modifier.weight(1f).padding(start = 8.dp), contentAlignment = Alignment.CenterEnd) {
                     val measurer = rememberTextMeasurer()
                     val header = formats.rankingHeader(firstVisible, visibleRows, rows.size, browsing) {
                         measurer.measure(it, PulseType.caption, maxLines = 1).size.width <= constraints.maxWidth
