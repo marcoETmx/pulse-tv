@@ -117,6 +117,18 @@ class FormatsTest {
         assertEquals("5–10 of 10", formats.rankingRange(firstVisible = 4, visibleRows = 6, total = 10))
     }
 
+    @Test
+    fun `ranking header adds how to move through the rows, and leaves it out when the line is too wide`() {
+        fun header(total: Int, browsing: Boolean, maxLength: Int = 100) =
+            formats.rankingHeader(firstVisible = 0, visibleRows = 7, total = total, browsing = browsing) { it.length <= maxLength }
+
+        assertEquals("5 tracked", header(total = 5, browsing = false))
+        assertEquals("1–7 of 11  ·  ▶ to browse", header(total = 11, browsing = false))
+        assertEquals("1–7 of 11  ·  ▲▼ to scroll", header(total = 11, browsing = true))
+        assertEquals("1–7 of 11", header(total = 11, browsing = true, maxLength = 25))
+        assertEquals("1–7 of 11", header(total = 11, browsing = false, maxLength = 5))
+    }
+
     /** English words with German conventions, to show that numbers and dates follow the language, not US rules. */
     private val germanStyle = Formats(
         object : PulseStrings by EnglishStrings {
