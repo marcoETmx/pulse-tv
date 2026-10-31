@@ -89,6 +89,17 @@ class Formats(val strings: PulseStrings, zone: ZoneId = ZoneId.systemDefault()) 
         return strings.rankingRows(first + 1, first + visibleRows, total)
     }
 
+    /**
+     * [rankingRange], plus how to move through the rows when not all fit. The hint is left out unless the whole
+     * line [fits], so the header never takes a second line and pushes the last row out of the card.
+     */
+    fun rankingHeader(firstVisible: Int, visibleRows: Int, total: Int, browsing: Boolean, fits: (String) -> Boolean): String {
+        val range = rankingRange(firstVisible, visibleRows, total)
+        if (total <= visibleRows) return range
+        val hint = if (browsing) strings.rankingScrollHint else strings.rankingBrowseHint
+        return "$range  ·  $hint".takeIf(fits) ?: range
+    }
+
     /** Before the amount ("$139", "MXN 120") or after it, kept on the same line ("139 $"), as the language writes it. */
     private fun withCurrency(amount: String, currency: String?): String {
         val symbol = currency?.takeIf { it.isNotBlank() } ?: "$"

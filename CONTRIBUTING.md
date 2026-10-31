@@ -35,8 +35,11 @@ Every text on screen lives in a catalog in `traffic/dashboard/i18n`, one per lan
 3. Add the language to `AppLanguage` with its language code, so the menu offers it and System default
    picks it when the TV uses that language.
 4. Add a test like `SpanishStringsTest`, and look at the dashboard and the open menu on a 1920×1080
-   screen: translations often run longer than English. Characters that Space Grotesk lacks, such as
-   Japanese, are drawn with the TV's own font, so check them on a real TV too.
+   screen: translations often run longer than English. The demo has five products, so add a few to
+   `DemoAnalyticsSource` while you look: past seven, the ranking header also says which rows are on
+   screen and how to move through them, and leaves that hint out when it doesn't fit on one line.
+   Characters that Space Grotesk lacks, such as Japanese, are drawn with the TV's own font, so check
+   them on a real TV too.
 
 ## Commit messages
 

@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,9 +27,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,7 +47,9 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import com.marcoelizalde.pulse.traffic.dashboard.Change
@@ -58,14 +63,18 @@ import com.marcoelizalde.pulse.ui.theme.PulseType
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-private const val VISIBLE_ROWS = 7
+/** Rows on screen on a 1080p TV; [rowsThatFit] gives the count for the room the card has. */
+private const val ROWS_ON_1080P = 7
 private val RowHeight = 44.dp
 private val RowGap = 4.dp
 private val RowShape = RoundedCornerShape(12.dp)
 
+/** How many whole rows fit in [height]: seven on a 1080p TV, fewer when a taller font leaves the card less room. */
+internal fun rowsThatFit(height: Dp): Int = ((height + RowGap) / (RowHeight + RowGap)).toInt().coerceAtLeast(1)
+
 /**
- * Every product in its own row, in [order]. Seven rows fit on screen; D-pad ▶ enters the list and ▲▼ moves
- * one row at a time, scrolling the rest into view.
+ * Every product in its own row, in [order]. As many whole rows as fit are on screen, seven on a 1080p TV;
+ * D-pad ▶ enters the list and ▲▼ moves one row at a time, scrolling the rest into view.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -83,19 +92,28 @@ fun ProductRanking(
     val pitch = with(LocalDensity.current) { (RowHeight + RowGap).toPx() }
     val firstVisible by remember { derivedStateOf { (scroll.value / pitch).roundToInt() } }
     var browsing by remember { mutableStateOf(false) }
+    // The list sets how many rows fit once it is measured.
+    var visibleRows by remember { mutableIntStateOf(ROWS_ON_1080P) }
 
     PulseCard(modifier) {
-        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 20.dp)) {
+        // Less padding below than above, so the last row may come closer to the bottom edge than the title is to the top.
+        Column(Modifier.fillMaxSize().padding(start = 14.dp, top = 20.dp, end = 14.dp, bottom = 8.dp)) {
             Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Overline(formats.strings.rankingTitle(order))
-                Spacer(Modifier.weight(1f))
-                val range = formats.rankingRange(firstVisible, VISIBLE_ROWS, rows.size)
-                val hint = when {
-                    rows.size <= VISIBLE_ROWS -> ""
-                    browsing -> "  ·  ${formats.strings.rankingScrollHint}"
-                    else -> "  ·  ${formats.strings.rankingBrowseHint}"
+                // The width the title leaves, measured so the header stays on one line in every language.
+                BoxWithConstraints(Modifier.weight(1f).padding(start = 16.dp), contentAlignment = Alignment.CenterEnd) {
+                    val measurer = rememberTextMeasurer()
+                    val header = formats.rankingHeader(firstVisible, visibleRows, rows.size, browsing) {
+                        measurer.measure(it, PulseType.caption, maxLines = 1).size.width <= constraints.maxWidth
+                    }
+                    Text(
+                        header,
+                        style = PulseType.caption,
+                        color = PulseColors.TextMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                Text(range + hint, style = PulseType.caption, color = PulseColors.TextMuted)
             }
             Spacer(Modifier.height(16.dp))
             if (rows.isEmpty()) {
@@ -107,8 +125,13 @@ fun ProductRanking(
                 )
             }
             val firstRowFocus = remember { FocusRequester() }
-            CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollOnlyAsNeeded) {
-                RankingList(rows, logos, barColor, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
+            // The room the header leaves, so a taller font or larger text shows fewer rows instead of cutting the last one.
+            BoxWithConstraints(Modifier.weight(1f)) {
+                val fit = rowsThatFit(maxHeight)
+                SideEffect { visibleRows = fit }
+                CompositionLocalProvider(LocalBringIntoViewSpec provides ScrollOnlyAsNeeded) {
+                    RankingList(rows, logos, barColor, fit, scroll, firstRowFocus, onBrowsingChange = { browsing = it })
+                }
             }
         }
     }
@@ -119,6 +142,7 @@ private fun RankingList(
     rows: List<RankingRow>,
     logos: Map<String, ByteArray>,
     barColor: Color,
+    visibleRows: Int,
     scroll: ScrollState,
     firstRowFocus: FocusRequester,
     onBrowsingChange: (Boolean) -> Unit,
@@ -126,8 +150,8 @@ private fun RankingList(
     Column(
         Modifier
             .fillMaxWidth()
-            // Exactly seven rows tall, so each ▲▼ step scrolls by one whole row.
-            .height(RowHeight * VISIBLE_ROWS + RowGap * (VISIBLE_ROWS - 1))
+            // Exactly [visibleRows] rows tall, so each ▲▼ step scrolls by one whole row.
+            .height(RowHeight * visibleRows + RowGap * (visibleRows - 1))
             .onFocusChanged { onBrowsingChange(it.hasFocus) }
             // ▶ from the chart lands on the first row (or the last one focused), not the nearest one.
             .focusRestorer(firstRowFocus)
@@ -173,7 +197,7 @@ private fun RankingLine(
     var focused by remember { mutableStateOf(false) }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(fraction) {
-        delay(order.coerceAtMost(VISIBLE_ROWS) * 70L)
+        delay(order.coerceAtMost(ROWS_ON_1080P) * 70L)
         grow.animateTo(fraction, tween(800, easing = FastOutSlowInEasing))
     }
 
