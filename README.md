@@ -9,6 +9,7 @@ Pulse TV is an Android TV app that shows the visitors and sales of your [DataFas
 - Shows a traffic dashboard with total visitors and sales across every website in your DataFast account.
 - Draws a visitors-over-time chart, with sales as bars, for Today, 7 days, 15 days, 30 days or This year.
 - Ranks your products by visitors or by sales, with what each one sold and whether its visitors went up or down. Products are listed by their DataFast name, or by domain when a website has no name.
+- Opens by itself when the TV device boots, on Android 9 and Fire OS 7. When the device wakes from standby it comes back to Pulse if Pulse was open.
 - Runs on clearly labelled demo data when no DataFast token is set.
 - Speaks English, Spanish, French, German, Italian, Japanese, Simplified Chinese and Korean.
 
