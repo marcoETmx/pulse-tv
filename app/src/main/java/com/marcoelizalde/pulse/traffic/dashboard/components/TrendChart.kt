@@ -202,9 +202,10 @@ private fun DrawScope.drawTrend(
         drawText(label, topLeft = Offset(left, plot.bottom + 8.dp.toPx()))
     }
 
-    val line = Path()
-    points.forEachIndexed { index, point ->
-        if (index == 0) line.moveTo(x(index), y(point.visitors)) else line.lineTo(x(index), y(point.visitors))
+    val vertices = points.mapIndexed { index, point -> Offset(x(index), y(point.visitors)) }
+    val line = Path().apply {
+        moveTo(vertices.first().x, vertices.first().y)
+        smoothLine(vertices).forEach { cubicTo(it.c1.x, it.c1.y, it.c2.x, it.c2.y, it.end.x, it.end.y) }
     }
     val area = Path().apply {
         addPath(line)
@@ -247,6 +248,41 @@ private fun DrawScope.drawTrend(
             marker = marker,
             plot = plot,
             textMeasurer = textMeasurer,
+        )
+    }
+}
+
+/** One cubic Bézier piece of [smoothLine]: two control points and the point it ends on. */
+internal data class CurveSegment(val c1: Offset, val c2: Offset, val end: Offset)
+
+/**
+ * A smooth line through [points], ordered by x, as cubic Bézier segments.
+ *
+ * It uses monotone cubic interpolation (Fritsch–Butland): each point's slope is the harmonic mean of
+ * the slopes on both sides, and zero at a peak, a valley or a flat run. So the curve goes through every
+ * point but never rises above or dips below the two points it joins: no invented peaks, and no dip
+ * under the baseline next to a zero.
+ */
+internal fun smoothLine(points: List<Offset>): List<CurveSegment> {
+    if (points.size < 2) return emptyList()
+    val secants = points.zipWithNext { a, b -> (b.y - a.y) / (b.x - a.x) }
+    val slopes = points.indices.map { index ->
+        when (index) {
+            0 -> secants.first()
+            points.lastIndex -> secants.last()
+            else -> {
+                val before = secants[index - 1]
+                val after = secants[index]
+                if (before * after <= 0f) 0f else 2f * before * after / (before + after)
+            }
+        }
+    }
+    return points.zipWithNext().mapIndexed { index, (start, end) ->
+        val third = (end.x - start.x) / 3f
+        CurveSegment(
+            c1 = Offset(start.x + third, start.y + slopes[index] * third),
+            c2 = Offset(end.x - third, end.y - slopes[index + 1] * third),
+            end = end,
         )
     }
 }
